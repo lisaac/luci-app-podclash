@@ -1,0 +1,12 @@
+<%+cbi/valueheader%>
+<span style="word-break:break-all;">
+  <%
+    local val = self:cfgvalue(section) or self.default or ""
+    if luci.model.uci.cursor():get('pod_clash_proxies', section, "type") == "proxy_provider" then
+      val = '<a href="' .. val .. '">' .. val .. '</a>'
+    end
+			write(val)
+  %>
+</span>
+<input type="hidden" id="<%=cbid%>" value="<%=pcdata(self:cfgvalue(section) or self.default or "")%>" />
+<%+cbi/valuefooter%>

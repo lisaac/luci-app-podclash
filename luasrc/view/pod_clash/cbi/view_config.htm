@@ -1,0 +1,25 @@
+<script type="text/javascript">
+function close_config_dialog() {
+        document.body.classList.remove('dialog-config-active')
+        document.getElementById('dialog_reslove').remove()
+      }
+show_config_dialog = function(config_yaml) {
+  document.getElementById('dialog_reslove') && document.getElementById('dialog_reslove').remove() || document.body.insertAdjacentHTML("beforeend", '<div id="dialog_reslove"><div class="dialog_box"><div class="dialog_line"></div><div class="dialog_line"><span><%:config.yaml:%></span><br><span id="diglog_status"></span></div><div class="dialog_line"><textarea class="cbi-input-textarea" id="dialog_config_text" style="width: 100%; height:100%;" rows="20" ></textarea></div><div class="dialog_line" style="text-align: right;"><input type="button" class="btn cbi-button cbi-button-reset" type="reset" value="<%:Cancel%>" onclick="close_reslove_dialog()" /></div><div class="dialog_line"></div></div></div>')
+  document.body.classList.add('dialog-reslove-active')
+  let s = document.getElementById('dialog_config_text') 
+  s.innerHTML = config_yaml
+}
+view_config = function(conf){
+  let xhr = new XMLHttpRequest()
+  xhr.open("GET", "<%=luci.dispatcher.build_url('admin/services/pod_clash/get_config')%>" + "/" + conf, true)
+  xhr.onload = function() {
+    if (xhr.status == 200){
+      
+      // console.log()
+      show_config_dialog(JSON.parse(xhr.response).config)
+    }
+  }
+  xhr.send()
+}
+
+</script>

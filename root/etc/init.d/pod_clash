@@ -1,0 +1,339 @@
+#!/bin/sh /tmp/.luci/etc/rc.common
+
+START=50
+STOP=90
+
+CLASH_GENERAL_CONF='pod_clash_general'
+CLASH_PROXIES_CONF='pod_clash_proxies'
+CLASH_RULES_CONF='pod_clash_rules'
+
+CLASH_CONF='/tmp/clash.yml'
+CLASH_PROXY_PROVIDER_CONF='/tmp/clash_proxies_provider.yml'
+
+CLASH_PROXY_PROVIDER=
+
+get_uci() {
+  uci get $1.$2.$3 2>/dev/null
+}
+
+get_list() {
+  local v=$(uci get $1.$2.$3 2>/dev/null)
+  [ -n "$v" ] && echo -e "- \"\c" || return
+  local i=1
+  local space=""
+  while [ $i -lt $4 ]
+  do
+    space="$space "
+    let i+=1
+  done
+  echo -e "$v\c" | sed s"/ /\"\n${space} - \"/g" | sed s"/^\n//"
+  echo -e "\""
+}
+
+gen_general_config() {
+  cat <<-EOF >$2
+port: $(get_uci $1 general port)
+redir-port: 7891
+socks-port: $(get_uci $1 general socks_port)
+mixed-port: $(get_uci $1 general mixed_port)
+allow-lan: $(get_uci $1 general allow_lan)
+bind-address: "*"
+authentication:
+  $(get_list $1 general authentication 2)
+mode: "$(get_uci $1 general mode)"
+log-level: "$(get_uci $1 general log_level)"
+external-controller: "$(get_uci $1 general external_controller)"
+secret: "$(get_uci $1 general secret)"
+dns:
+  enable: true
+  ipv6: $(get_uci $1 dns ipv6)
+  listen: "0.0.0.0:53"
+  enhanced-mode: "$(get_uci $1 dns enhancde_mode)"
+  fake-ip-range: "$(get_uci $1 dns fake_ip_range)"
+  use-hosts: $(get_uci $1 dns use_hosts)
+  default-nameserver:
+    $(get_list $1 dns default_nameserver 4)
+  fake-ip-filter:
+    $(get_list $1 dns fake_ip_filter 4)
+  nameserver:
+    $(get_list $1 dns nameserver 4)
+  fallback:
+    $(get_list $1 dns fallback 4)
+  fallback-filter:
+    geoip: $(get_uci $1 dns fallback_filter_geoip)
+    ipcidr:
+      $(get_list $1 dns fallback_filter_ipcidr 6)
+EOF
+}
+
+gen_proxy_provider() {
+  cat <<-EOF >>$3
+  $(get_uci $1 $2 name):
+    type: "$(get_uci $1 $2 provider_type)"
+    path: "$(get_uci $1 $2 provider_path)"
+    url: "$(get_uci $1 $2 server)"
+    interval: "$(get_uci $1 $2 provider_interval)"
+    health-check:
+      enable: $(get_uci $1 $2 provider_health_check)
+      url: "$(get_uci $1 $2 provider_health_check_url)"
+      interval: $(get_uci $1 $2 provider_health_check_interval)
+EOF
+}
+
+gen_vmess() {
+  local network=$(get_uci $1 $2 vmess_network)
+    cat <<-EOF >>$3
+  - name: "$(get_uci $1 $2 name)"
+    type: "vmess"
+    server: "$(get_uci $1 $2 server)"
+    port: $(get_uci $1 $2 port)
+    uuid: "$(get_uci $1 $2 vmess_uuid)"
+    alterId: $(get_uci $1 $2 vmess_alter_id)
+    cipher: "$(get_uci $1 $2 vmess_cipher)"
+    udp: $(get_uci $1 $2 udp)
+    tls: $(get_uci $1 $2 tls)
+    skip-cert-verify: $(get_uci $1 $2 skip_cert_verify)
+    network: "$network"
+EOF
+  [ "$network" == "ws" ] && {
+    cat <<-EOF >>$3
+    ws-path: "$(get_uci $1 $2 vmess_path)"
+    ws-headers:
+      Host: "$(get_uci $1 $2 vmess_host)"
+EOF
+  }
+  [ "$network" == "http" ] && {
+    cat <<-EOF >>$3
+    http-opts:
+      method: "GET"
+      path:
+        $(get_list $1 $2 vmess_path 8)
+      host: "$(get_uci $1 $2 vmess_host)"
+EOF
+  } && [ "$(get_uci $1 $2 vmess_keep_alive)" == "true" ] && {
+    cat <<-EOF >>$3
+      headers:
+        Connection:
+          - keep-alive
+EOF
+  }
+}
+
+gen_ss() {
+  local plugin=$(get_uci $1 $2 ss_plugin)
+  cat <<-EOF >>$3
+  - name: "$(get_uci $1 $2 name)"
+    type: ss
+    server: "$(get_uci $1 $2 server)"
+    port: $(get_uci $1 $2 port)
+    cipher: "$(get_uci $1 $2 ss_cipher)"
+    password: "$(get_uci $1 $2 ss_password)"
+    plugin: "$plugin"
+EOF
+[ "$plugin" == "obfs" ] && {
+  cat <<-EOF >>$3
+    plugin-opts:
+      mode: "$(get_uci $1 $2 ss_mode)"
+      host: "$(get_uci $1 $2 ss_host)"
+EOF
+}
+[ "$plugin" == "v2ray-plugin" ] && {
+  cat <<-EOF >>$3
+    plugin-opts:
+      mode: "websocket"
+      tls: host: "$(get_uci $1 $2 tls)"
+      skip-cert-verify: $(get_uci $1 $2 skip_cert_verify)
+      host: "$(get_uci $1 $2 ss_host)"
+      path: "$(get_uci $1 $2 ss_path)"
+      mux: $(get_uci $1 $2 ss_mux)
+      headers:
+        custom: "$(get_uci $1 $2 ss_header)"
+EOF
+}
+}
+
+gen_ssr() {
+  cat <<-EOF >>$3
+  - name: "$(get_uci $1 $2 name)"
+    type: "ssr"
+    server: "$(get_uci $1 $2 server)"
+    port: $(get_uci $1 $2 port)
+    cipher: "$(get_uci $1 $2 ssr_cipher)"
+    password: "$(get_uci $1 $2 ssr_password)"
+    obfs: "$(get_uci $1 $2 ssr_obfs)"
+    protocol: "$(get_uci $1 $2 ssr_protocol)"
+    obfs-param: "$(get_uci $1 $2 ssr_obfs_param)"
+    protocol-param: "$(get_uci $1 $2 ssr_protocol_param)"
+    udp: $(get_uci $1 $2 udp)
+EOF
+}
+
+gen_snell() {
+  cat <<-EOF >>$3
+  - name: "$(get_uci $1 $2 name)"
+    type: "snell"
+    server: "$(get_uci $1 $2 server)"
+    port: $(get_uci $1 $2 port)
+    psk: "$(get_uci $1 $2 snell_psk)"
+    obfs-opts:
+      mode: "$(get_uci $1 $2 snell_mode)"
+      host: "$(get_uci $1 $2 snell_host)"
+EOF
+}
+
+gen_trojan() {
+  cat <<-EOF >>$3
+  - name: "$(get_uci $1 $2 name)"
+    type: "trojan"
+    server: "$(get_uci $1 $2 server)"
+    port: $(get_uci $1 $2 port)
+    password: "$(get_uci $1 $2 trojan_password)"
+    udp: $(get_uci $1 $2 udp)
+    sni: "$(get_uci $1 $2 trojan_sni)"
+    alpn:
+      $(get_list $1 $2 trojan_alpn 6)
+    skip-cert-verify: $(get_uci $1 $2 skip_cert_verify)
+EOF
+}
+
+gen_socks_http() {
+  cat <<-EOF >>$3
+  - name: "$(get_uci $1 $2 name)"
+    type: "$(get_uci $1 $2 type)"
+    server: "$(get_uci $1 $2 server)"
+    port: $(get_uci $1 $2 port)
+    username: "$(get_uci $1 $2 username)"
+    password: "$(get_uci $1 $2 password)"
+    tls: $(get_uci $1 $2 tls)
+    skip-cert-verify: $(get_uci $1 $2 skip_cert_verify)
+EOF
+[ "$(get_uci $1 $2 type)" == "socks5" ] && {
+  cat <<-EOF >>$3
+    udp: $(get_uci $1 $2 udp)
+EOF
+}
+}
+
+gen_proxy_config() {
+  local sid=$1
+  [ "$(get_uci $CLASH_PROXIES_CONF $sid enable)" != "true" ] && return
+  local proxy_type
+  config_get proxy_type $sid "type"
+  [ "$proxy_type" == "proxy_provider" ] && {
+    local proxy_provider_name=$(get_uci pod_clash_proxies $sid name)
+    [ -n "$proxy_provider_name" ] && \
+    CLASH_PROXY_PROVIDER=$(echo -e "${CLASH_PROXY_PROVIDER}\n${proxy_provider_name}") && \
+    gen_proxy_provider $CLASH_PROXIES_CONF $sid $CLASH_PROXY_PROVIDER_CONF
+  }
+  [ "$proxy_type" == "vmess" ] && {
+    gen_vmess $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+  [ "$proxy_type" == "ss" ] && {
+    gen_ss $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+  [ "$proxy_type" == "ssr" ] && {
+    gen_ssr $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+  [ "$proxy_type" == "http" ] && {
+    gen_socks_http $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+  [ "$proxy_type" == "socks5" ] && {
+    gen_socks_http $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+  [ "$proxy_type" == "snell" ] && {
+    gen_snell $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+  [ "$proxy_type" == "trojan" ] && {
+    gen_trojan $CLASH_PROXIES_CONF $sid $CLASH_CONF
+  }
+}
+
+gen_proxy_group_config() {
+  local sid=$1
+  [ "$(get_uci $CLASH_PROXIES_CONF $sid enable)" != "true" ] && return
+  local group_type
+  config_get group_type $sid "type"
+  cat <<-EOF >>$CLASH_CONF
+  - name: "$(get_uci $CLASH_PROXIES_CONF $sid name)"
+    type: "$group_type"
+    url: "$(get_uci $CLASH_PROXIES_CONF $sid url)"
+    interval: $(get_uci $CLASH_PROXIES_CONF $sid interval)
+    tolerance: $(get_uci $CLASH_PROXIES_CONF $sid tolerance)
+    use:
+      $(get_list $CLASH_PROXIES_CONF $sid proxy_providers 6)
+    proxies:
+      $(get_list $CLASH_PROXIES_CONF $sid proxies 6)
+EOF
+}
+
+gen_proxies_config() {
+  cat <<-EOF >>$CLASH_CONF
+proxies:
+EOF
+  cat <<-EOF >$CLASH_PROXY_PROVIDER_CONF
+proxy-providers:
+EOF
+  config_load "pod_clash_proxies"
+  config_foreach gen_proxy_config "proxy"
+  cat $CLASH_PROXY_PROVIDER_CONF >>$CLASH_CONF
+}
+
+gen_proxy_groups_config() {
+  cat <<-EOF >>$CLASH_CONF
+proxy-groups:
+EOF
+  config_load "pod_clash_proxies"
+  config_foreach gen_proxy_group_config "proxy_group"
+}
+
+gen_rule_provider_config() {
+  local sid=$1
+  [ "$(get_uci $CLASH_RULES_CONF $sid enable)" != "true" ] && return
+  cat <<-EOF >>$CLASH_CONF
+  $(get_uci $CLASH_RULES_CONF $sid name):
+    type: "$(get_uci $CLASH_RULES_CONF $sid type)"
+    behavior: "$(get_uci $CLASH_RULES_CONF $sid behavior)"
+    path: "$(get_uci $CLASH_RULES_CONF $sid path)"
+    url: "$(get_uci $CLASH_RULES_CONF $sid url)"
+    interval: $(get_uci $CLASH_RULES_CONF $sid interval)
+EOF
+}
+
+gen_rule_providers_config() {
+  cat <<-EOF >>$CLASH_CONF
+rule-providers:
+EOF
+  config_load "pod_clash_rules"
+  config_foreach gen_rule_provider_config "rule_provider"
+}
+
+gen_rule_config() {
+  local sid=$1
+  [ "$(get_uci $CLASH_RULES_CONF $sid enable)" != "true" ] && return
+  local rule_type=$(get_uci $CLASH_RULES_CONF $sid rule_type)
+  [ "$rule_type" == "MATCH" ] && {
+    cat <<-EOF >>$CLASH_CONF
+  - "$rule_type,$(get_uci $CLASH_RULES_CONF $sid proxies)"
+EOF
+  } || {
+  cat <<-EOF >>$CLASH_CONF
+  - "$rule_type,$(get_uci $CLASH_RULES_CONF $sid valid_matcher),$(get_uci $CLASH_RULES_CONF $sid proxies)"
+EOF
+  }
+}
+
+gen_rules_config() {
+  cat <<-EOF >>$CLASH_CONF
+rules:
+EOF
+  config_load "pod_clash_rules"
+  config_foreach gen_rule_config "rule"
+}
+
+start() {
+  gen_general_config $CLASH_GENERAL_CONF $CLASH_CONF
+  gen_proxies_config
+  gen_proxy_groups_config
+  gen_rule_providers_config
+  gen_rules_config
+}
