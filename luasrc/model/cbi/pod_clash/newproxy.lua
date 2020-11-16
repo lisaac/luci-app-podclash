@@ -329,7 +329,7 @@ s = m:section(NamedSection, sid, "proxy")
 
 m.on_before_save = function(self)
 	-- handle proxy provider URL
-	local subconverter_base_rul = m.uci:get(global_config, golbal, "subconverter_base_rul") or "http://127.0.0.1:25500/sub?"
+	local subconverter_base_url = m.uci:get(global_config, golbal, "subconverter_base_url") or "http://127.0.0.1:25500/sub?"
 	local p_url = o_provider_url:formvalue(sid)
 	if o_type:formvalue(sid) =="proxy_provider" then
 		local provider_type = o_provider_type:formvalue(sid)
@@ -345,9 +345,9 @@ m.on_before_save = function(self)
 
 			local n_p_url
 			if url_table.target == "clash" and url_table.list == "true" then
-				n_p_url = subconverter_base_rul .. luci.http.urlencode_params(n_url_table) .. "&url=".. luci.http.urlencode(url_table.url)
+				n_p_url = subconverter_base_url .. luci.http.urlencode_params(n_url_table) .. "&url=".. luci.http.urlencode(url_table.url)
 			else
-				n_p_url = subconverter_base_rul .. luci.http.urlencode_params(n_url_table) .. "&url=".. luci.http.urlencode(p_url)
+				n_p_url = subconverter_base_url .. luci.http.urlencode_params(n_url_table) .. "&url=".. luci.http.urlencode(p_url)
 			end
 			m.uci:set(proxies_config, sid, "server", n_p_url)
 			m.uci:set(proxies_config, sid, "provider_url", n_p_url)

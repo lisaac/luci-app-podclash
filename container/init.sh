@@ -45,7 +45,7 @@ function update_subconverter(){
   rm -fr /subconverter.tar.gz &> /dev/null
   wget ${subconverter_url} -O /tmp/subconverter.tar.gz
   rm -fr ${SUBCONVERTER_PATH}/*
-  tar zxf ${SUBCONVERTER_PATH}/subconverter.tar.gz -C /
+  tar zxf /tmp/subconverter.tar.gz -C /
   rm -fr /tmp/subconverter.tar.gz &> /dev/null
 }
 

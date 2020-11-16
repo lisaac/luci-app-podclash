@@ -1,4 +1,4 @@
-local _clash = {}
+_clash = {}
 local global_config = "pod_clash"
 local uci = require "luci.model.uci"
 local syaml = require "luci.model.syaml"
