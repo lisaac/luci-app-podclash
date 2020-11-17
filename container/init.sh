@@ -21,6 +21,8 @@ function update_clash(){
   cd ${CLASH_PATH} && rm -fr clash &> /dev/null
   gunzip clash.gz && chmod +x clash
   rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
+
+  echo -e "port: 7890\nexternal-controller: \":9090\"\nsecret: \"podclash\"\n" > /clash/config.yaml
 }
 
 function update_geoip(){

@@ -34,11 +34,11 @@ o = s:option(DynamicList, "authentication", translate("Authentication"), transla
 o.placeholder = "user1:pass1"
 o:depends("allow_lan", "true")
 
-o = s:option(Value, "external_controller", translate("External Controller"), translate("Control clash from outside with RESTful API"))
-o.placeholder = "0.0.0.0:9090"
-o = s:option(Value, "secret", translate("Secret"), translate("Secret for RESTful API"))
-o.password = true
-o.placeholder = "mypass"
+-- o = s:option(Value, "external_controller", translate("External Controller"), translate("Control clash from outside with RESTful API"))
+-- o.placeholder = "0.0.0.0:9090"
+-- o = s:option(Value, "secret", translate("Secret"), translate("Secret for RESTful API"))
+-- o.password = true
+-- o.placeholder = "mypass"
 
 o = s:option(ListValue, "log_level", translate("Log level"))
 o:value("silent", "Silent")

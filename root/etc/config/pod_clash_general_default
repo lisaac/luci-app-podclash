@@ -8,7 +8,7 @@ config clash 'general'
 	list authentication 'user1:pass1' # authentication of local SOCKS5/HTTP(S) server
 	list authentication 'user2:pass2'
 	option external_controller '0.0.0.0:9090'
-	option secret 'mypass'
+	option secret 'podclash'
 	option log_level 'info'           # silent / error / warning / info / debug
 
 config clash 'dns'

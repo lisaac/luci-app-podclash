@@ -11,9 +11,12 @@ config_get POD_CONFIG pod "pod_config"
 config_get UCI_CONFIG global "config"
 
 config_load "pod_clash_general_${UCI_CONFIG}"
-config_get CLASH_SECRET general "secret"
-config_get CLASH_controller general "external_controller"
-CLASH_PORT=$(echo ${CLASH_controller} | cut -d: -f2)
+# config_get CLASH_SECRET general "secret"
+# config_get CLASH_controller general "external_controller"
+# CLASH_PORT=$(echo ${CLASH_controller} | cut -d: -f2)
+CLASH_PORT=9090
+CLASH_SECRET=podclash
+
 POD_IP=
 
 live_check(){
@@ -29,7 +32,7 @@ gen_config(){
 
 apply_config(){
   # return http code only
-  stat=$(curl -s -w "%{http_code}" -X PUT -H "Authorization: Bearer ${CLASH_SECRET}" -H "Content-Type: application/json" -d "{\"path\":\"${POD_CONFIG}\"}" ${POD_IP}:${CLASH_PORT}/configs)
+  stat=$(curl -s -w "%{http_code}" -X PUT -H "Authorization: Bearer ${CLASH_SECRET}" -H "Content-Type: application/json" -d "{\"path\":\"${POD_CONFIG}\"}" ${POD_IP}:${CLASH_PORT}/configs\?force\=true)
   if [ "$stat" -lt 300 ]; then
     echo "success"
   else

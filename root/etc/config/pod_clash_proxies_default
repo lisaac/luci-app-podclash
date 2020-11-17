@@ -1,13 +1,13 @@
 config proxy
-  option name 'Proxy'
-  option type 'ss' # ss vmess socks5 http snell trojan ssr
-  option server ''
-  option port ''
+	option name 'Proxy'
+	option type 'ss' # ss vmess socks5 http snell trojan ssr
+	option server ''
+	option port ''
 
 config proxy_group
-  option name 'Group1'
-  option type 'auto' # auto fallback load-balance relay
-  list proxies ''
-  option url 'http://www.gstatic.com/generate_204'
-  option interval '300'
-  option tolerance '0'
+	option name 'Group1'
+	option type 'auto' # auto fallback load-balance relay
+	list proxies ''
+	option url 'http://www.gstatic.com/generate_204'
+	option interval '300'
+	option tolerance '0'

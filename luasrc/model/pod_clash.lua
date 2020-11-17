@@ -3,6 +3,19 @@ local global_config = "pod_clash"
 local uci = require "luci.model.uci"
 local syaml = require "luci.model.syaml"
 
+_clash.get_pod_ip = function()
+  local pod_name = uci:get(global_config, "pod", "pod_name")
+  if not pod_name then return end
+
+  local dk = (require "luci.model.docker").new()
+  local pod_info = dk.containers:inspect({name=pod_name}).body
+  if (type(pod_info.NetworkSettings) == "table" and type(pod_info.NetworkSettings.Networks) == "table") then
+    for _, v in pairs(pod_info.NetworkSettings.Networks) do
+      return v.IPAddress
+    end
+  end
+end
+
 -- {x:x,y:y}
 _clash.get_enabled_name_list = function(config, seciton_type)
   local _section
@@ -314,10 +327,26 @@ _clash.new_config = function(config_file, config_table)
 end
 
 _clash.switch_config = function(config_file)
+  local clash_port = 9090
+  local clash_secret = "podclash"
   uci:set(global_config, "global", "config", config_file)
   uci:commit(global_config)
-  -- regeneratere config file
+  local pod_name = uci:get(global_config, "pod", "pod_name")
+  if not pod_name then return end
+  local pod_ip = _clash.get_pod_ip()
+  if pod_ip then
   -- handle clash api
+    local httpclient = require "luci.httpclient"
+    local pod_config = luci.model.uci:get(global_config, "pod", "pod_config")
+  -- regeneratere config file
+    nixio.fs.writefile("/tmp/config.yaml", _clash.gen_config(config_file))
+    luci.util.exec("docker cp /tmp/config.yaml ".. pod_name..":"..pod_config)
+	  local code, header, json = httpclient.request_raw("http://"..pod_ip..":"..clash_port.."/configs?force=true", {
+      method = "PUT",
+      headers = {Authorization = "Bearer "..clash_secret},
+      body = "{\"path\":\""..pod_config.."\"}"
+    })
+  end
 end
 
 _clash.remove_config = function(config_file)
@@ -465,7 +494,6 @@ end
 
 _clash.validate_proxy_groups = function(proxies_info_list, proxy_groups_config)
   local proxy_group_info_list = {}
-  -- luci.util.perror(proxy_groups_config)
   local message = "ok"
   uci:foreach(proxy_groups_config, "proxy_group", function(_section)
       local e = uci:get(proxy_groups_config, _section[".name"], "enable")
@@ -541,10 +569,10 @@ bind-address: "*"
 authentication: %s
 mode: "%s"
 log-level: "%s"
-external-controller: "%s"
-secret: "%s"]], general_table.port or "", general_table.redir_port or "7892", general_table.socks_port or "", general_table.mixed_port or ""
-    , general_table.allow_lan and "true" or "false", syaml.encode(general_table.authentication or {}), general_table.mode or ""
-    , general_table.log_level or "info", general_table.external_controller or "", general_table.secret or "")
+external-controller: ":9090"
+secret: "podclash"]], general_table.port or "", general_table.redir_port or "7892", general_table.socks_port or "", general_table.mixed_port or ""
+    , general_table.allow_lan, syaml.encode(general_table.authentication or {}), general_table.mode or ""
+    , general_table.log_level or "info")
 end
 
 _clash.gen_dns_config = function(dns_config)
@@ -554,7 +582,7 @@ _clash.gen_dns_config = function(dns_config)
     ipv6 = dns.ipv6 and true or false,
     listen = "0.0.0.0:53",
     ["enhanced-mode"] = dns.enhanced_mode,
-    ["use-hosts"] = dns.use_hosts,
+    ["use-hosts"] = dns.use_hosts and true or false,
     ["default-nameserver"] = dns.default_nameserver,
     nameserver = dns.nameserver,
     fallback = dns.fallback,

@@ -1,8 +1,8 @@
 config clash 'golbal'
-  option config 'default'
-  list configs 'default'
-  option subconverter_base_url 'http://127.0.0.1:25500/sub?'
+	option config 'default'
+	list configs 'default'
+	option subconverter_base_url 'http://127.0.0.1:25500/sub?'
 
 config clash 'pod'
-  option pod_config '/clash/config.yaml'
-  option pod_name 'luci_pod_clash'
+	option pod_config '/clash/clash.yaml'
+	option pod_name 'luci_pod_clash'
