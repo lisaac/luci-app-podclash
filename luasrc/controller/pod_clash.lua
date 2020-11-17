@@ -28,6 +28,11 @@ local proxies_config = "pod_clash_proxies_" .. config_file
 local general_config = "pod_clash_general_" .. config_file
 
 function get_logs()
+	local pod_clash = require "luci.model.pod_clash"
+
+	luci.http.status(200, "OK")
+	luci.http.write(pod_clash.get_logs())
+
 end
 
 function get_config(config_file)

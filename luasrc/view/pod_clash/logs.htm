@@ -3,11 +3,11 @@
 <script type="text/javascript">
 	let logs = document.getElementById('logs')
 	logs.style.display="inline"
-	XHR.poll(5, '<%=url("admin", "services", "pod_clash", "get_logs")%>', null,
+	XHR.get( '<%=url("admin", "services", "pod_clash", "get_logs")%>', null,
 		(x, data) => {
 			if (x.responseText && logs) {
-				logs.innerHTML += x.responseText
-				logs.scrollTop = logs.scrollHeight;
+				logs.innerHTML = x.responseText
+				// logs.scrollTop = logs.scrollHeight;
 			}
 		}
 	);

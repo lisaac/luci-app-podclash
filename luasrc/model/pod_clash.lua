@@ -311,6 +311,16 @@ _clash.parse_all = function(config_file, config_table)
   return stat
 end
 
+_clash.get_logs = function()
+  local pod_name = uci:get(global_config, "pod", "pod_name")
+  if not pod_name then return "" end
+
+  local docker = require "luci.model.docker"
+  local dk = docker.new()
+
+  local logs = dk:logs(({name_or_id = "pod_name", query = {stdout=1}})).body or ""
+  return logs
+end
 
 _clash.new_config = function(config_file, config_table)
   local stat = _clash.parse_all(config_file, config_table or {})
