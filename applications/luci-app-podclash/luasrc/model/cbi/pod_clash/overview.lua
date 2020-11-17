@@ -34,11 +34,7 @@ if pod_ip then
 	if type(res) == "table" then
 		clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode:upper()
 		clash_info['12clash_allow_lan']["_value"] = res["allow-lan"] and "TRUE" or "FALSE"
-		if clash_info['12clash_allow_lan']["_value"] == "FALSE" then
-			clash_info['13clash_ports'] = nil
-		else
-			clash_info['13clash_ports']["_value"] = "HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED:"..(res["mixed-port"] or "")
-		end
+		clash_info['13clash_ports']["_value"] = "HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED:"..(res["mixed-port"] or "")
 		-- clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip.."'>http://"..pod_ip.."</a>"
 		clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>secret: "..clash_secret
 	end
