@@ -318,7 +318,7 @@ _clash.get_logs = function()
   local docker = require "luci.model.docker"
   local dk = docker.new()
 
-  local logs = dk:logs(({name_or_id = "pod_name", query = {stdout=1}})).body or ""
+  local logs = dk:logs(({name_or_id = pod_name, query = {stdout=1}})).body or ""
   return logs
 end
 

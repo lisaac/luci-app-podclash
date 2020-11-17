@@ -4,7 +4,7 @@ function index()
 	-- if not nixio.fs.access("/etc/config/luci_plugin_clash") then
 	-- 	return
 	-- end
-	entry({"admin", "services", "pod_clash"}, firstchild(), "Clash", 40)
+	entry({"admin", "services", "pod_clash"}, firstchild(), "Pod Clash", 40)
 	entry({"admin", "services", "pod_clash", "overview"}, form("pod_clash/overview"), _("Overview"), 1).leaf = true
 	entry({"admin", "services", "pod_clash", "general"}, cbi("pod_clash/general"), _("General Settings"), 2).leaf = true
 	entry({"admin", "services", "pod_clash", "dns"}, cbi("pod_clash/dns"), _("DNS"), 3).leaf = true

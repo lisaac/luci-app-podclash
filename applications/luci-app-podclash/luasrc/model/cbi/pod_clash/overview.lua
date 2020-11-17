@@ -20,6 +20,7 @@ clash_info['21external_controller'] = {_key=translate("External Controller"),_va
 
 local pod_ip = pod_clash.get_pod_ip()
 local pod_name = luci.model.uci:get(global_config, "pod", "pod_name")
+local image_name = luci.model.uci:get(global_config, "pod", "image_name")
 if pod_ip then
 	local httpclient = require "luci.httpclient"
 	-- local secret = luci.model.uci:get("pod_clash_general_"..config_file, "general", "secret")
@@ -39,7 +40,7 @@ if pod_ip then
 		clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>secret: "..clash_secret
 	end
 else
-	cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai --restart unless-stopped --name " .. pod_name .. " lisaac/pod_clash"
+	cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai --restart unless-stopped --name " .. pod_name .. " ".. image_name
 	clash_info['00pod_name']["_value"] = "<a href=\""..luci.dispatcher.build_url("admin/docker/newcontainer/".. luci.util.urlencode(cmd)).."\" >"..
 	translate("There is no Pod(container) named 「".. pod_name.. "」, please create it first!").."</a>"
 	m.message = translate("There are no Pod(container) named ".. pod_name.. ", please create it first!")
