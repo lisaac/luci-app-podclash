@@ -30,7 +30,7 @@ if pod_ip then
 
 	local code, header, json = httpclient.request_raw("http://"..pod_ip..":"..clash_port.."/configs", {headers = {Authorization = "Bearer "..clash_secret}})
 	local res = luci.jsonc.parse(json)
-		clash_info['00pod_name']["_value"] = pod_name
+		clash_info['00pod_name']["_value"] = "<a href='"..luci.dispatcher.build_url("admin/docker/container/"..pod_name).."' >"..pod_name .. "</a>"
 		clash_info['01pod_ip']["_value"] = pod_ip
 	if type(res) == "table" then
 		clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode:upper()
@@ -46,7 +46,7 @@ else
 	m.message = translate("There are no Pod(container) named ".. pod_name.. ", please create it first!")
 end
 
-s = m:section(Table, clash_info, translate("Pod Clash"))
+s = m:section(Table, clash_info, translate("POD Clash"))
 s.template = "cbi/tblsection"
 s:option(DummyValue, "_key", translate("Info"))
 o = s:option(DummyValue, "_value")

@@ -8,10 +8,13 @@ _clash.get_pod_ip = function()
   if not pod_name then return end
 
   local dk = (require "luci.model.docker").new()
-  local pod_info = dk.containers:inspect({name=pod_name}).body
-  if (type(pod_info.NetworkSettings) == "table" and type(pod_info.NetworkSettings.Networks) == "table") then
-    for _, v in pairs(pod_info.NetworkSettings.Networks) do
-      return v.IPAddress
+  local res = dk.containers:inspect({name=pod_name})
+  if res and res.code == 200 then
+    local pod_info = res.body
+    if (type(pod_info.NetworkSettings) == "table" and type(pod_info.NetworkSettings.Networks) == "table") then
+      for _, v in pairs(pod_info.NetworkSettings.Networks) do
+        return v.IPAddress
+      end
     end
   end
 end
@@ -312,13 +315,17 @@ _clash.parse_all = function(config_file, config_table)
 end
 
 _clash.get_logs = function()
+  local logs = ""
   local pod_name = uci:get(global_config, "pod", "pod_name")
-  if not pod_name then return "" end
+  if not pod_name then return logs end
 
   local docker = require "luci.model.docker"
   local dk = docker.new()
 
-  local logs = dk:logs(({name_or_id = pod_name, query = {stdout=1}})).body or ""
+  local res = dk:logs(({name_or_id = pod_name, query = {stdout=1}}))
+  if res and res.code == 200 then
+    logs = res.body or ""
+  end
   return logs
 end
 
@@ -349,8 +356,9 @@ _clash.switch_config = function(config_file)
     local httpclient = require "luci.httpclient"
     local pod_config = luci.model.uci:get(global_config, "pod", "pod_config")
   -- regeneratere config file
-    nixio.fs.writefile("/tmp/config.yaml", _clash.gen_config(config_file))
-    luci.util.exec("docker cp /tmp/config.yaml ".. pod_name..":"..pod_config)
+    nixio.fs.mkdirr("/tmp/conf.d/"..pod_name)
+    nixio.fs.writefile("/tmp/conf.d/"..pod_name.."/config.yaml", _clash.gen_config(config_file))
+    luci.util.exec("docker cp /tmp/conf.d/"..pod_name.."/config.yaml ".. pod_name..":"..pod_config)
 	  local code, header, json = httpclient.request_raw("http://"..pod_ip..":"..clash_port.."/configs?force=true", {
       method = "PUT",
       headers = {Authorization = "Bearer "..clash_secret},
