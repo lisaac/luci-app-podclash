@@ -7,7 +7,8 @@ SUBCONVERTER_PATH="/subconverter"
 
 function update_clash(){
   echo "$(date +%Y-%m-%d\ %T) Updating clash.."
-  mkdir -p ${CLASH_PATH}
+  mkdir -p ${CLASH_PATH}/rules
+  mkdir -p ${CLASH_PATH}/proxies
   arch=$(uname -m)
   clash_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/clash/releases/latest | grep 'tag_name' | cut -d\" -f4)"
   if [ "$arch" = "x86_64" ]; then

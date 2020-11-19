@@ -291,7 +291,6 @@ end
 								} else if ("rule_provider" == part) {
 									conf = "rule-providers"
 								}
-								console.log(JSON.stringify(doc[conf]))
 								if (! doc[conf]){
 									console.log("No " + part + " found")
 									alert("No " + part + " found")
@@ -367,42 +366,97 @@ end
               e.preventDefault()
             }
 
-            fileLoad.onchange = function(e){
+						async function file2Tar(fileToLoad) {
+							if (fileToLoad == null) return
+							function file2Byte(file) {
+								return new Promise((resolve, reject) => {
+									var fileReader = new FileReader();
+									fileReader.onerror = () => {
+										fileReader.abort();
+										reject(new DOMException("Problem parsing input file."));
+									};
+									fileReader.onload = (fileLoadedEvent) =>
+									{
+										resolve(ByteHelper.stringUTF8ToBytes(fileLoadedEvent.target.result));
+									}
+									fileReader.readAsBinaryString(file);
+							})}
+							const x = await file2Byte(fileToLoad)
+							return fileByte2Tar(null, fileToLoad.name, x).downloadAs( fileToLoad.name + ".tar" )
+						}
+
+						function fileByte2Tar(tarFile, fileName, fileBytes) {
+							if(!tarFile) tarFile = TarFile.create(fileName)
+
+							var tarHeader = TarFileEntryHeader.default();
+							var tarFileEntryHeader = new TarFileEntryHeader
+							(
+								fileName,
+								tarHeader.fileMode,
+								tarHeader.userIDOfOwner,
+								tarHeader.userIDOfGroup,
+								fileBytes.length, // fileSizeInBytes,
+								tarHeader.timeModifiedInUnixFormat, // todo
+								0, // checksum,
+								TarFileTypeFlag.Instances().Normal,
+								tarHeader.nameOfLinkedFile,
+								tarHeader.uStarIndicator,
+								tarHeader.uStarVersion,
+								tarHeader.userNameOfOwner,
+								tarHeader.groupNameOfOwner,
+								tarHeader.deviceNumberMajor,
+								tarHeader.deviceNumberMinor,
+								tarHeader.filenamePrefix
+							);
+
+							tarFileEntryHeader.checksumCalculate();
+							var entryForFileToAdd = new TarFileEntry
+							(
+								tarFileEntryHeader,
+								fileBytes
+							);
+
+							tarFile.entries.push(entryForFileToAdd);
+							return tarFile
+						}
+
+            fileLoad.onchange =  function(e){
               if (!fileLoad.value) {
                 return
               }
-              
-              let uploadPromises = new Array()
-              for (let i = 0; i < fileLoad.files.length; i++){
-                uploadPromises.push(new Promise((resolve, reject) => {
-                  let formData = new FormData()
-                  formData.append('upload-filename', fileLoad.files[i].name)
-                  formData.append('upload-archive', fileLoad.files[i])
-                  let xhr = new XMLHttpRequest()
-                  let xhrUrl = "<%=self.sectiontype%>"
-                  if (xhrUrl == "rule_provider"){
-                    xhr.open("POST", "<%=luci.dispatcher.build_url('admin/services/pod_clash/import_rule_provider')%>", true)
-                  }
-                  else if (xhrUrl == "proxy"){
-                    xhr.open("POST", "<%=luci.dispatcher.build_url('admin/services/pod_clash/import_proxy_provider')%>", true)
-                  }
-
-                  xhr.onload = function() {
-                    if (xhr.status == 200)
-                      return resolve()
-                    else
-                      return reject()
-                  }
-                  xhr.send(formData)
-                }))
-              }
-              Promise.all(uploadPromises)
-                .then(() => {
-                  window.location.replace(location.href)
-                })
-                .catch(() => {
-                  alert("Import fail!")
-                })
+							loadScript("<%=resource%>/pod_clash/tar.min.js", ()=>{
+								let uploadPromises = new Array()
+								for (let i = 0; i < fileLoad.files.length; i++){
+									uploadPromises.push(new Promise(async (resolve, reject) => {
+										var bytesToWriteAsBlob = await file2Tar(fileLoad.files[i])
+										let formData = new FormData()
+										formData.append('upload-filename', fileLoad.files[i].name)
+										formData.append('upload-archive', bytesToWriteAsBlob)
+										let xhr = new XMLHttpRequest()
+										let xhrUrl = "<%=self.sectiontype%>"
+										if (xhrUrl == "rule_provider"){
+											xhr.open("POST", "<%=luci.dispatcher.build_url('admin/services/pod_clash/import_rule_provider')%>", true)
+										}
+										else if (xhrUrl == "proxy"){
+											xhr.open("POST", "<%=luci.dispatcher.build_url('admin/services/pod_clash/import_proxy_provider')%>", true)
+										}
+										xhr.onload = function() {
+											if (xhr.status == 200)
+												return resolve()
+											else
+												return reject()
+										}
+										xhr.send(formData)
+									}))
+								}
+								Promise.all(uploadPromises)
+									.then(() => {
+										window.location.replace(location.href)
+									})
+									.catch(() => {
+										alert("Import fail!")
+									})
+							})
             }
           </script>
         <%- end -%>
