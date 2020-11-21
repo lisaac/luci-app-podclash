@@ -325,8 +325,19 @@ end
 					function show_reslove_dialog(part) {
 						document.getElementById('dialog_reslove') && document.getElementById('dialog_reslove').remove() || document.body.insertAdjacentHTML("beforeend", '<div id="dialog_reslove"><div class="dialog_box"><div class="dialog_line"></div><div class="dialog_line"><span><%:Please paste the config.yaml:%></span><br><span id="diglog_status"></span></div><div class="dialog_line"><textarea class="cbi-input-textarea" id="dialog_reslove_text" style="width: 100%; height:100%;" rows="20" onkeyup="clear_text()"></textarea></div><div class="dialog_line" style="text-align: right;"><input type="button" class="btn cbi-button cbi-button-apply" type="submit" value="<%:Submit%>" onclick="resloveYaml(\''+part+'\')" /> <input type="button" class="btn cbi-button cbi-button-reset" type="reset" value="<%:Cancel%>" onclick="close_reslove_dialog()" /></div><div class="dialog_line"></div></div></div>')
 						document.body.classList.add('dialog-reslove-active')
-						let s = document.getElementById('diglog_status')
+						const s = document.getElementById('diglog_status')
 						s.innerHTML = ""
+						const x = document.getElementById('dialog_reslove_text')
+						if(part == "proxy"){
+							x.placeholder = "proxys:\n  ...\nproxy-providers:\n  ..."
+						}else if(part == "proxy_group"){
+							x.placeholder = 'proxy-groups:\n  ...'
+
+						}else if(part == "rule_provider"){
+							x.placeholder = 'rule-providers:\n  ...'
+						}else if(part == "rule"){
+							x.placeholder = 'rules:\n  ...'
+						}
 					}
           // btnReslove = document.getElementById("cbi.its.<%=self.config%>.<%=self.sectiontype%>.<%=section%>")
           // fileReslove = document.getElementById("cbi.its.<%=self.config%>.<%=self.sectiontype%>.resolve_config")

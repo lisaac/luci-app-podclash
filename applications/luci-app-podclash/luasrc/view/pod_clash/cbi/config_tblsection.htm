@@ -280,11 +280,15 @@ end
                 // location.reload()
                 window.location.replace(location.href)
               else
-                alert("Import fail!")
+								alert("Import fail!")
+								let s = document.getElementById('diglog_status')
+								s.innerHTML = "Import fail!"
             }
             xhr.send(formData)
           } catch (e) {
-            console.log(e);
+						console.log(e);
+						let s = document.getElementById('diglog_status')
+						s.innerHTML = "Reslove YAML fail!"
 						alert("Reslove YAML fail!")
           }
         })
@@ -295,7 +299,7 @@ end
       }
 
       function show_reslove_dialog() {
-        document.getElementById('dialog_reslove') && document.getElementById('dialog_reslove').remove() || document.body.insertAdjacentHTML("beforeend", '<div id="dialog_reslove"><div class="dialog_box"><div class="dialog_line"></div><div class="dialog_line"><span><%:Please paste the config.yaml:%></span><br><span id="diglog_status"></span></div><div class="dialog_line"><span>Config Name: </span><input id="config_name" type="text"></div><div class="dialog_line"><textarea class="cbi-input-textarea" id="dialog_reslove_text" style="width: 100%; height:100%;" rows="20" onkeyup="clear_text()"></textarea></div><div class="dialog_line" style="text-align: right;"><input type="button" class="btn cbi-button cbi-button-apply" type="submit" value="<%:Submit%>" onclick="resloveYaml()" /> <input type="button" class="btn cbi-button cbi-button-reset" type="reset" value="<%:Cancel%>" onclick="close_reslove_dialog()" /></div><div class="dialog_line"></div></div></div>')
+        document.getElementById('dialog_reslove') && document.getElementById('dialog_reslove').remove() || document.body.insertAdjacentHTML("beforeend", '<div id="dialog_reslove"><div class="dialog_box"><div class="dialog_line"></div><div class="dialog_line"><span><%:Please paste the config.yaml:%></span><br><span id="diglog_status"></span></div><div class="dialog_line"><span>Config Name: </span><input id="config_name" class="cbi-input-text" placeholder="myconfig.yaml" type="text"></div><div class="dialog_line"><textarea class="cbi-input-textarea" id="dialog_reslove_text" style="width: 100%; height:100%;" rows="20" onkeyup="clear_text()" placeholder="port: 7890\nallow-lan: false\nmode: rule\nlog-level: info\ndns:\n  enable: true\n  listen:0.0.0.0:53\n  enhanced-mode: redir-host\nproxies:\nproxy-providers:\nproxy-groups:\nrule-providers:\nrules:\n  - MATCH,PROXY" ></textarea></div><div class="dialog_line" style="text-align: right;"><input type="button" class="btn cbi-button cbi-button-apply" type="submit" value="<%:Submit%>" onclick="resloveYaml()" /> <input type="button" class="btn cbi-button cbi-button-reset" type="reset" value="<%:Cancel%>" onclick="close_reslove_dialog()" /></div><div class="dialog_line"></div></div></div>')
         document.body.classList.add('dialog-reslove-active')
         let s = document.getElementById('diglog_status')
         s.innerHTML = ""

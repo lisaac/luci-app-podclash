@@ -1,7 +1,7 @@
 config clash 'general'
 	option mode 'rule'                # rule / global / direct / script
 	option redir_port '7892'          # port of TProxy 
-	option allow_lan 'false'          # allow other devices access
+	option allow_lan 'true'          # allow other devices access
 	option port '7890'                # port of HTTP
 	option socks_port '7891'          # port of SOCKS5
 	option mixed_port '7893'          # port of HTTP&SOCKS5
@@ -25,8 +25,9 @@ config clash 'dns'
 	list fake_ip_filter 'localhost.ptlogin2.qq.com'
 
 	list nameserver '114.114.114.114'
-	list nameserver 'tls://dns.rubyfish.cn:853'
-	list nameserver 'https://1.1.1.1/dns_query'
+	list nameserver '223.5.5.5'
+	list fallback 'tls://dns.google'
+	list fallback 'https://cloudflare-dns.com/dns-query'
 	list fallback 'tls://1.1.1.1:853'             # concurrent request with nameserver, fallback used when GEOIP country isn't CN
 	option fallback_filter_geoip 'true'
 	list fallback_filter_ipcidr '240.0.0.0/4' # ips in these subnets will be considered polluted
