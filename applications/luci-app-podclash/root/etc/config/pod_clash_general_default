@@ -13,7 +13,7 @@ config clash 'general'
 
 config clash 'dns'
 	# option enable 'true'            # set true to enable dns
-	option enhancde_mode 'redir-host' # or fake-ip
+	option enhanced_mode 'redir-host' # or fake-ip
 	option use_hosts 'true'
 	option ipv6 'false'
 	# option listen '0.0.0.0:53'

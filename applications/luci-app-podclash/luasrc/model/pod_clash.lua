@@ -726,7 +726,7 @@ _clash.gen_rule_providers_config = function(rules_config)
   uci:foreach(rules_config, "rule_provider", function(section)
     if section.enable ~= "true" or not section.name or not section.type then return end
     local rule_provider_yaml = string.format('\n  %s: { type: %s, behavior: %s, path: %s, url: %s, interval: %s }',
-          section.name, section.type, section.behavior, section.path, section.url, section.interval)
+          section.name, section.type, section.behavior, section.path or "", section.url or "", section.interval or "")
     rule_providers_yaml = rule_providers_yaml .. rule_provider_yaml
   end)
 

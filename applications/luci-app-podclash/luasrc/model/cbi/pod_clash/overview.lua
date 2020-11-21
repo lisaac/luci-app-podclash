@@ -35,7 +35,7 @@ if pod_ip then
 	if type(res) == "table" then
 		clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode:upper()
 		clash_info['12clash_allow_lan']["_value"] = res["allow-lan"] and "TRUE" or "FALSE"
-		clash_info['13clash_ports']["_value"] = "HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED:"..(res["mixed-port"] or "")
+		clash_info['13clash_ports']["_value"] = "HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED: "..(res["mixed-port"] or "")
 		-- clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip.."'>http://"..pod_ip.."</a>"
 		clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>secret: "..clash_secret
 	end
@@ -46,23 +46,43 @@ else
 	m.message = translate("There are no Pod(container) named ".. pod_name.. ", please create it first!")
 end
 
+-- pod clash info
 s = m:section(Table, clash_info, translate("POD Clash"))
 s.template = "cbi/tblsection"
 s:option(DummyValue, "_key", translate("Info"))
 o = s:option(DummyValue, "_value")
 o.rawhtml = true
+
+-- config info
 local config_info = {}
 
 local configs = luci.model.uci:get(global_config, "global", "configs")
-for _, x in ipairs(configs) do
-	config_info[x] = {name = x}
+for _, conf in ipairs(configs) do
+	local genreal_conf = "pod_clash_general_" .. conf
+	config_info[conf] = {
+		name = conf,
+		mode = luci.model.uci:get(genreal_conf, "general", "mode"),
+		port = "HTTP: ".. (luci.model.uci:get(genreal_conf, "general", "port") or "") 
+		.. " | SOCK5: " .. (luci.model.uci:get(genreal_conf, "general", "socks_port") or "") 
+		.. " | MIXED: " .. (luci.model.uci:get(genreal_conf, "general", "mixed_port") or ""),
+		dns_mode = luci.model.uci:get(genreal_conf, "dns", "enhanced_mode")
+	}
 end
 
 s = m:section(Table, config_info, translate("Clash Config"))
 s.template = "pod_clash/cbi/config_tblsection"
 
 o = s:option(DummyValue, "name", translate("Config Name"))
-local o = s:option(Button, "switch")
+o = s:option(DummyValue, "mode", translate("Mode"))
+o = s:option(DummyValue, "port", translate("Ports"))
+o = s:option(DummyValue, "dns_mode", translate("DNS Mode"))
+
+o = s:option(Button, "view")
+o.template = "pod_clash/cbi/view_button"
+o.inputtitle = translate("View")
+o.inputstyle = "apply"
+
+o = s:option(Button, "switch")
 o.template = "pod_clash/cbi/disabled_button"
 o.render = function(self, section, scope)
 	if config_file == section then
@@ -84,12 +104,6 @@ o.write = function(self, section, value)
 	pod_clash.switch_config(section)
 	luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
 end
-
-o = s:option(Button, "view")
-o.template = "pod_clash/cbi/view_button"
-o.inputtitle = translate("View")
-o.inputstyle = "apply"
-
 
 o = s:option(Button, "remove")
 o.template = "pod_clash/cbi/disabled_button"
