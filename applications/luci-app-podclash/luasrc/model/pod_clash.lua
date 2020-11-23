@@ -20,10 +20,10 @@ _clash.get_pod_ip = function()
 end
 
 -- {x:x,y:y}
-_clash.get_enabled_name_list = function(config, seciton_type)
+_clash.get_enabled_name_list = function(config, section_type)
   local _section
   local name_list = {}
-  uci:foreach(config, seciton_type, function(_section)
+  uci:foreach(config, section_type, function(_section)
     if uci:get(config, _section[".name"], "enable") == "true" then
       name_list[uci:get(config, _section[".name"], "name")] = _section[".name"]
     end
@@ -42,7 +42,7 @@ _clash.parse_general = function(general_config, general_table)
   uci:set(general_config, "general", "external_controller", general_table["external-controller"] or "0.0.0.0:9090")
   uci:set(general_config, "general", "secret", general_table["secret"] or "mypass")
   uci:set(general_config, "general", "log_level", general_table["log-level"] or "info")
-  uci:set(general_config, "general", "authentication", general_table["authentication"] or {'user1:pass1'})
+  uci:set(general_config, "general", "authentication", next(general_table["authentication"]) and general_table["authentication"] or {'user1:pass1'})
   return stat
 end
 
@@ -285,6 +285,7 @@ _clash.parse_all = function(config_file, config_table)
   local proxies_config = "pod_clash_proxies_" .. config_file
   local rules_config   = "pod_clash_rules_" .. config_file
   local general_config = "pod_clash_general_" .. config_file
+  local script_config = "pod_clash_script_" .. config_file
   if nixio.fs.access(proxies_config) or nixio.fs.access(rules_config) or nixio.fs.access(general_config) then
     return false
   else
@@ -306,6 +307,7 @@ _clash.parse_all = function(config_file, config_table)
     uci:commit(proxies_config)
     uci:commit(rules_config)
     uci:commit(general_config)
+    nixio.fs.writefile("/etc/config/"..script_config, config_table["script"] and config_table["script"]["code"] or "")
   else
     nixio.fs.remove("/etc/config/"..proxies_config)
     nixio.fs.remove("/etc/config/"..rules_config)
@@ -629,7 +631,7 @@ _clash.gen_proxies_config = function(proxies_config)
         port = section.port,
         chpher = section.ss_cipher,
         password = section.password,
-        plugin = seciton.ss_plugin,
+        plugin = section.ss_plugin,
         ["plugin-opts"] = {
           mode = section.ss_mode,
           host = section.ss_host,
@@ -748,14 +750,30 @@ _clash.gen_rules_config = function(rules_config)
   return rules_yaml
 end
 
+_clash.gen_script_config = function(script_config)
+  local s = io.open("/etc/config/" .. script_config)
+  if not s then return "" end
+  local line
+  local script = "\nscript:\n  code: |"
+  for line in s:lines() do
+    if line ~= "" and not line:match("^%s+$") then
+      script = script .. "\n    " .. line
+    end
+  end
+  s:close()
+  return script
+end
+
 _clash.gen_config = function(config_file)
   local proxies_config = "pod_clash_proxies_" .. config_file
   local rules_config   = "pod_clash_rules_" .. config_file
   local general_config = "pod_clash_general_" .. config_file
+  local script_config = "pod_clash_script_" .. config_file
 
   local yaml_config = _clash.gen_general_config(general_config) .. _clash.gen_dns_config(general_config)
                    .. _clash.gen_proxies_config(proxies_config) .. _clash.gen_proxy_groups_config(proxies_config)
                    .. _clash.gen_rule_providers_config(rules_config) .. _clash.gen_rules_config(rules_config)
+                   .. _clash.gen_script_config(script_config)
 
   return yaml_config
 end

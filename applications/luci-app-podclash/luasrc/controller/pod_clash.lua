@@ -10,7 +10,8 @@ function index()
 	entry({"admin", "services", "pod_clash", "dns"}, cbi("pod_clash/dns"), _("DNS"), 3).leaf = true
 	entry({"admin", "services", "pod_clash", "proxies"}, cbi("pod_clash/proxies"), _("Proxies"), 4).leaf = true
 	entry({"admin", "services", "pod_clash", "rules"}, cbi("pod_clash/rules"), _("Rules"), 5).leaf = true
-	entry({"admin", "services", "pod_clash", "logs"}, form("pod_clash/logs"), _("Logs"), 6).leaf = true
+	entry({"admin", "services", "pod_clash", "script"}, form("pod_clash/script"), _("Script"), 6).leaf = true
+	entry({"admin", "services", "pod_clash", "logs"}, form("pod_clash/logs"), _("Logs"), 7).leaf = true
 
 	entry({"admin", "services", "pod_clash", "newproxy"}, cbi("pod_clash/newproxy", {hideapplybtn = true})).leaf = true
 

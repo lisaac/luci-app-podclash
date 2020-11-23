@@ -1,4 +1,4 @@
-m = SimpleForm("clash")
+m = SimpleForm("pod_clash_log")
 m.submit = false
 m.reset  = false
 s = m:section(SimpleSection)

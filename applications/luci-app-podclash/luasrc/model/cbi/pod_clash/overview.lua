@@ -35,7 +35,7 @@ if pod_ip then
 	if type(res) == "table" then
 		clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode:upper()
 		clash_info['12clash_allow_lan']["_value"] = res["allow-lan"] and "TRUE" or "FALSE"
-		clash_info['13clash_ports']["_value"] = "HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED: "..(res["mixed-port"] or "")
+		clash_info['13clash_ports']["_value"] = clash_info['12clash_allow_lan']["_value"] == "TRUE" and ("HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED: "..(res["mixed-port"] or "")) or "-"
 		-- clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip.."'>http://"..pod_ip.."</a>"
 		clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>secret: "..clash_secret
 	end
@@ -59,12 +59,13 @@ local config_info = {}
 local configs = luci.model.uci:get(global_config, "global", "configs")
 for _, conf in ipairs(configs) do
 	local genreal_conf = "pod_clash_general_" .. conf
+	local allow_lan = luci.model.uci:get(genreal_conf, "general", "allow_lan")
 	config_info[conf] = {
 		name = conf,
 		mode = luci.model.uci:get(genreal_conf, "general", "mode"),
-		port = "HTTP: ".. (luci.model.uci:get(genreal_conf, "general", "port") or "") 
+		port = allow_lan == "true" and ("HTTP: ".. (luci.model.uci:get(genreal_conf, "general", "port") or "") 
 		.. " | SOCK5: " .. (luci.model.uci:get(genreal_conf, "general", "socks_port") or "") 
-		.. " | MIXED: " .. (luci.model.uci:get(genreal_conf, "general", "mixed_port") or ""),
+		.. " | MIXED: " .. (luci.model.uci:get(genreal_conf, "general", "mixed_port") or "")) or "-",
 		dns_mode = luci.model.uci:get(genreal_conf, "dns", "enhanced_mode")
 	}
 end
