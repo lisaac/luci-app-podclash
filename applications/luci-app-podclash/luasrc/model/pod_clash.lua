@@ -610,7 +610,7 @@ _clash.gen_dns_config = function(dns_config)
       geoip = dns.fallback_filter_geoip and true or false,
       ipcidr = dns.fallback_filter_ipcidr
     },
-    ["fake-ip-range"] = dns.fake_ip_range,
+    ["fake-ip-range"] = dns.fake_ip_range or "198.18.0.1/16",
     ["fake-ip-filter"] = dns.fake_ip_filter
   })
   return dns_yaml

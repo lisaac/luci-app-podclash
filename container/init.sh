@@ -3,6 +3,7 @@
 CLASH_PATH="/clash"
 CLASH_PORT=7892
 CLASH_DNS_PORT=53
+CLASH_FAKE_IP=$(grep fake-ip-range: /clash/clash.yaml | cut -d' ' -f2)
 SUBCONVERTER_PATH="/subconverter"
 
 function update_clash(){
@@ -92,18 +93,69 @@ function set_iptables {
   iptables -t nat -A CLASH -p tcp -j REDIRECT --to-ports $CLASH_PORT
 
   # 包转入自定义 chian
-  iptables -t nat -A PREROUTING -j HANDLE_DNS
-  iptables -t nat -A PREROUTING -j NEED_ACCEPT
-  iptables -t nat -A PREROUTING -j CLASH
+  iptables -t nat -A PREROUTING -p udp -j HANDLE_DNS
+  iptables -t nat -A PREROUTING -p tcp -j NEED_ACCEPT
+  iptables -t nat -A PREROUTING -p tcp -j CLASH
   iptables -t nat -A POSTROUTING -j S_NAT
+
+  [ -n "$CLASH_FAKE_IP" ] && \
+  iptables -t nat -N FAKE_IP && \
+  iptables -t nat -A OUTPUT -p tcp -j FAKE_IP && \
+  iptables -t nat -A FAKE_IP -p tcp -d "$CLASH_FAKE_IP" -j REDIRECT --to-port "$CLASH_PORT" && \
+  iptables -t nat -A OUTPUT -p tcp -j FAKE_IP
+
+  # udp
+  iptables -t mangle -N NEED_ACCEPT
+  iptables -t mangle -N CLASH
+
+  ip rule add fwmark 1 table 100
+  ip route add local default dev lo table 100
+
+  iptables -t mangle -A NEED_ACCEPT -d 0.0.0.0/8          -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 127.0.0.0/8        -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 10.0.0.0/8         -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 169.254.0.0/16     -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 172.16.0.0/12      -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 192.0.0.0/24       -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 192.0.2.0/24       -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 192.88.99.0/24     -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 172.16.0.0/12      -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 192.168.0.0/16     -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 198.18.0.0/15      -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 198.51.100.0/24    -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 203.0.113.0/24     -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 224.0.0.0/4        -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 240.0.0.0/4        -j ACCEPT
+  iptables -t mangle -A NEED_ACCEPT -d 255.255.255.255/32 -j ACCEPT
+
+  iptables -t mangle -A CLASH -p udp -j TPROXY --on-port "$CLASH_PORT" --tproxy-mark 1
+  iptables -t mangle -A PREROUTING -p udp -j NEED_ACCEPT
+  iptables -t mangle -A PREROUTING -p udp -j CLASH
+
+  [ -n "$CLASH_FAKE_IP" ] && \
+  iptables -t nat -A OUTPUT -j FAKE_IP && \
+  iptables -t mangle -A FAKE_IP -p udp -d "$CLASH_FAKE_IP" -j MARK --set-mark 1 && \
+  iptables -t mangle -A OUTPUT -p udp -j FAKE_IP
 }
 
 function flush_iptables {
   echo "$(date +%Y-%m-%d\ %T) flush iptables.."
-  iptables -t nat -D PREROUTING -j CLASH &>/dev/null
-  iptables -t nat -D PREROUTING -j HANDLE_DNS &>/dev/null
-  iptables -t nat -D PREROUTING -j NEED_ACCEPT &>/dev/null
+  iptables -t nat -D PREROUTING -p udp -j HANDLE_DNS &>/dev/null
+  iptables -t nat -D PREROUTING -p tcp -j NEED_ACCEPT &>/dev/null
+  iptables -t nat -D PREROUTING -p tcp -j CLASH &>/dev/null
   iptables -t nat -D POSTROUTING -j S_NAT &>/dev/null
+
+  iptables -t mangle -D PREROUTING -p udp -j NEED_ACCEPT &>/dev/null
+  iptables -t mangle -D PREROUTING -p udp -j CLASH &>/dev/null
+
+  [ -n "$CLASH_FAKE_IP" ] && {
+    iptables -t mangle -D OUTPUT -p udp -j FAKE_IP &>/dev/null
+    iptables -t nat -D OUTPUT -p tcp -j FAKE_IP &>/dev/null
+    iptables -t nat -F FAKE_IP &>/dev/null
+    iptables -t nat -X FAKE_IP &>/dev/null
+    iptables -t mangle -F FAKE_IP &>/dev/null
+    iptables -t mangle -X FAKE_IP &>/dev/null
+  }
 
   iptables -t nat -F CLASH &>/dev/null
   iptables -t nat -X CLASH &>/dev/null
@@ -114,6 +166,11 @@ function flush_iptables {
   iptables -t nat -F S_NAT &>/dev/null
   iptables -t nat -X S_NAT &>/dev/null
 
+  iptables -t mangle -F CLASH &>/dev/null
+  iptables -t mangle -X CLASH &>/dev/null
+  iptables -t mangle -F NEED_ACCEPT &>/dev/null
+  iptables -t mangle -X NEED_ACCEPT &>/dev/null
+
   iptables -t raw -F
   iptables -t raw -X
   iptables -t mangle -F
@@ -122,6 +179,9 @@ function flush_iptables {
   iptables -t nat -X
   iptables -t filter -F
   iptables -t filter -X
+
+  ip -4 rule de table 100
+  ip -4 route flush table 100
 }
 
 function start_clash(){
