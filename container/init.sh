@@ -3,7 +3,7 @@
 CLASH_PATH="/clash"
 CLASH_PORT=7892
 CLASH_DNS_PORT=53
-CLASH_FAKE_IP=$(grep fake-ip-range: /clash/clash.yaml | cut -d' ' -f2)
+CLASH_FAKE_IP=$(grep fake-ip-range: /clash/clash.yaml | awk -F'[:",]' '{ for(i=1; i<=NF; i++) if($i ~ /fake-ip-range/) print $(i+2)}')
 SUBCONVERTER_PATH="/subconverter"
 
 function update_clash(){
@@ -82,10 +82,10 @@ function set_iptables {
   iptables -t nat -A NEED_ACCEPT -d 240.0.0.0/4        -j ACCEPT
   iptables -t nat -A NEED_ACCEPT -d 255.255.255.255/32 -j ACCEPT
 
-  local local_ips=$(ip a | grep 'inet ' | awk '{print $2}')
+  local local_ips=$(ip addr | grep 'inet ' | awk '{print $2}')
   if [ -n "$local_ips" ]; then
     for local_ip in $local_ips; do
-      iptables -t nat -A NEED_ACCEPT -d $local_ip -j ACCEPT
+      iptables -t nat -A NEED_ACCEPT -d "$local_ip" -j ACCEPT
     done
   fi
 
@@ -98,6 +98,7 @@ function set_iptables {
   iptables -t nat -A PREROUTING -p tcp -j CLASH
   iptables -t nat -A POSTROUTING -j S_NAT
 
+echo $CLASH_FAKE_IP
   [ -n "$CLASH_FAKE_IP" ] && \
   iptables -t nat -N FAKE_IP && \
   iptables -t nat -A OUTPUT -p tcp -j FAKE_IP && \

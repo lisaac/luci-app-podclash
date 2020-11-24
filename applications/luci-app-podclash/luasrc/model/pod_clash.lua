@@ -42,7 +42,7 @@ _clash.parse_general = function(general_config, general_table)
   uci:set(general_config, "general", "external_controller", general_table["external-controller"] or "0.0.0.0:9090")
   uci:set(general_config, "general", "secret", general_table["secret"] or "mypass")
   uci:set(general_config, "general", "log_level", general_table["log-level"] or "info")
-  uci:set(general_config, "general", "authentication", next(general_table["authentication"]) and general_table["authentication"] or {'user1:pass1'})
+  uci:set(general_config, "general", "authentication", general_table["authentication"] and next(general_table["authentication"]) and general_table["authentication"] or {'user1:pass1'})
   return stat
 end
 
@@ -425,6 +425,7 @@ _clash.validate_rule_providers = function(rule_providers_config)
       if rule_providers_list[n] then
         uci:set(rules_config, _section[".name"], "enable", "false")
         message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due Duplicate with an existing provider!")
+        return
       end
       rule_providers_list[n] = {
         enable = e,
@@ -524,31 +525,60 @@ _clash.validate_proxy_groups = function(proxies_info_list, proxy_groups_config)
       if not n or n == "" or not t or t == "" then
         uci:set(proxy_groups_config, _section[".name"], "enable", "false")
         message = luci.dispatcher.translate("Some Porxy Group(s) had been DISABLED, due INVALID NAME or TYPE")
+        return
       end
 
       if proxy_group_info_list[n] then
         uci:set(proxy_groups_config, _section[".name"], "enable", "false")
         message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due Duplicate with an existing proxy group!")
+        return
       end
 
       if proxies_info_list[n] then
         uci:set(proxy_groups_config, _section[".name"], "enable", "false")
         message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due Duplicate with an existing proxy!")
+        return
       end
 
-      local proxies = uci:get(proxy_groups_config, _section[".name"], "proxies_name")
-      for _, v in ipairs(proxies) do
-        if not proxies_info_list[v] then
-          uci:set(proxy_groups_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due INVALID PROXIES")
-        end
-      end
+      -- local proxies = uci:get(proxy_groups_config, _section[".name"], "proxies_name")
+      -- for _, v in ipairs(proxies) do
+      --   if proxy ~= "REJECT" and proxy ~= "DIRECT" then
+      --     if not proxies_info_list[v] then
+      --       uci:set(proxy_groups_config, _section[".name"], "enable", "false")
+      --       message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due INVALID PROXIES")
+      --       return
+      --     end
+      --   end
+      -- end
 
       proxy_group_info_list[n] = {
         enable = e
       }
     end)
-    return proxy_group_info_list, message
+
+    -- double check proxy-group in porxy-group
+    local valid_proxy_group_info_list = {}
+    uci:foreach(proxy_groups_config, "proxy_group", function(_section)
+      local e = uci:get(proxy_groups_config, _section[".name"], "enable")
+      if e ~= "true" then return end
+      local proxies = uci:get(proxy_groups_config, _section[".name"], "proxies_name")
+      local n = uci:get(proxy_groups_config, _section[".name"], "name")
+      for _, v in ipairs(proxies) do
+        if v ~= "REJECT" and v ~= "DIRECT" then
+          if not proxies_info_list[v] and not proxy_group_info_list[v] then
+            uci:set(proxy_groups_config, _section[".name"], "enable", "false")
+            message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due INVALID PROXIES")
+            return
+          end
+        end
+      end
+      luci.util.perror(n)
+
+      valid_proxy_group_info_list[n] = {
+        enable = e
+      }
+    end)
+    return valid_proxy_group_info_list, message
 end
 
 _clash.validate_config = function(proxies_config, proxy_groups_config, rule_providers_config, rules_config)
