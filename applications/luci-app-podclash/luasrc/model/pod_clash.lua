@@ -348,8 +348,6 @@ end
 _clash.switch_config = function(config_file)
   local clash_port = 9090
   local clash_secret = "podclash"
-  uci:set(global_config, "global", "config", config_file)
-  uci:commit(global_config)
   local pod_name = uci:get(global_config, "pod", "pod_name")
   if not pod_name then return end
   local pod_ip = _clash.get_pod_ip()
@@ -366,6 +364,15 @@ _clash.switch_config = function(config_file)
       headers = {Authorization = "Bearer "..clash_secret},
       body = "{\"path\":\""..pod_config.."\"}"
     })
+
+    if code < 300 then 
+      uci:set(global_config, "global", "config", config_file)
+      uci:commit(global_config)
+    end
+    json = luci.jsonc.parse(json)
+    return code, json and json.message or ""
+  else
+    return 404, "NO POD FOUND"
   end
 end
 
@@ -629,15 +636,15 @@ _clash.gen_dns_config = function(dns_config)
   local dns = uci:get_all(dns_config, "dns")
   local dns_yaml = "\ndns: " .. syaml.encode( {
     enable = true,
-    ipv6 = dns.ipv6 and true or false,
+    ipv6 = dns.ipv6 == "true" and true or false,
     listen = "0.0.0.0:53",
     ["enhanced-mode"] = dns.enhanced_mode,
-    ["use-hosts"] = dns.use_hosts and true or false,
+    ["use-hosts"] = dns.use_hosts == "true" and true or false,
     ["default-nameserver"] = dns.default_nameserver,
     nameserver = dns.nameserver,
     fallback = dns.fallback,
     ["fallback-filter"] = {
-      geoip = dns.fallback_filter_geoip and true or false,
+      geoip = dns.fallback_filter_geoip == "true" and true or false,
       ipcidr = dns.fallback_filter_ipcidr
     },
     ["fake-ip-range"] = dns.fake_ip_range or "198.18.0.1/16",
@@ -665,12 +672,12 @@ _clash.gen_proxies_config = function(proxies_config)
         ["plugin-opts"] = {
           mode = section.ss_mode,
           host = section.ss_host,
-          tls = section.tls and true or false,
-          ["skip-cert-verify"] = section.skip_cert_verify and true or false,
+          tls = section.tls == "true" and true or false,
+          ["skip-cert-verify"] = section.skip_cert_verify == "true" and true or false,
           host = section.ss_host,
           path = section.ss_path,
           mux = true,
-          headers = { custom = section.ss_header }
+          headers = section.ss_header and { custom = section.ss_header } or nil
         }
       })
     elseif section.type == "ssr" then
@@ -685,12 +692,12 @@ _clash.gen_proxies_config = function(proxies_config)
           uuid = section.vmess_uuid,
           alterId = section.vmess_alter_id and tonumber(section.vmess_alter_id),
           cipher = section.vmess_cipher,
-          udp = section.udp and true or false,
-          tls = section.tls and true or false,
-          ["skip-cert-verify"] = section.skip_cert_verify and true or false,
+          udp = section.udp == "true" and true or false,
+          tls = section.tls == "true" and true or false,
+          ["skip-cert-verify"] = section.skip_cert_verify == "true" and true or false,
           network = section.vmess_network,
           ["ws-path"] = section.vmess_path,
-          ["ws-headers"] = {Host = section.vmess_host},
+          ["ws-headers"] = section.vmess_host and {Host = section.vmess_host} or nil,
         }
       if section.vmess_network == "http" then
         vmess["http-opts"] = {method="GET", path = section.vmess_path}
@@ -701,16 +708,16 @@ _clash.gen_proxies_config = function(proxies_config)
       proxy_yaml = "\n  - " .. syaml.encode(vmess)
     elseif section.type == "http" then
       proxy_yaml = string.format('\n  - { name: %s,    type: %s,    server: %s, port: %s, username: %s, password: %s, tls: %s, skip-cert-verify: %s }', 
-      section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "", section.skip_cert_verify or "false")
+      section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false" or "false")
     elseif section.type == "socks5" then
       proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, username: %s, password: %s, tls: %s, skip-cert-verify: %s, udp: %s }',
-      section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "", section.skip_cert_verify or "false", section.udp or "")
+      section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false", section.udp or "false")
     elseif section.type == "snell" then
       proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, psk: %s, obfs-opts: { mode: %s, host: %s }}',
-      section.name, section.type, section.server or "", section.port or "", section.snell_psk or "", section.snell_mode or "", section.snell_host or "")
+      section.name, section.type, section.server or "", section.port or "", section.snell_psk or "", section.snell_mode or "", section.snell_host or "false")
     elseif section.type == "trojan" then
       proxy_yaml = string.format("\n  - { name: %s, type: %s, server: %s, port: %s, password: %s, udp: %s, sni: %s, alpn: %s, skip-cert-verify: %s }", 
-      section.name, section.type, section.server or "", section.port or "", section.trojan_password or "", section.udp or "", section.trojan_sni or "",  section.trojan_alpn or "", section.skip_cert_verify or "false")
+      section.name, section.type, section.server or "", section.port or "", section.trojan_password or "", section.udp or "false", section.trojan_sni or "false",  section.trojan_alpn or "false", section.skip_cert_verify or "false")
     elseif section.type == "proxy_provider" then
       provider_yaml = "\n  " .. section.name .. ": " .. syaml.encode({
         type = section.provider_type,
@@ -718,7 +725,7 @@ _clash.gen_proxies_config = function(proxies_config)
         url = section.provider_url,
         interval = section.provider_interval,
         ["health-check"] = {
-          enable = section.provider_health_check and true or false,
+          enable = section.provider_health_check == "true" and true or false,
           url = section.provider_health_check_url,
           interval = section.provider_health_check_interval
         }

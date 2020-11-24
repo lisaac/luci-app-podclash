@@ -102,8 +102,12 @@ o.write = function(self, section, value)
 	-- if value ~= translate("Use") then
 	-- 	return
 	-- end
-	pod_clash.switch_config(section)
-	luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
+	local code, msg = pod_clash.switch_config(section)
+	if code < 300 then
+		luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
+	else
+		m.message = msg
+	end
 end
 
 o = s:option(Button, "remove")
