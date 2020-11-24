@@ -1,5 +1,6 @@
 config clash 'global'
 	option config 'default'
+	option using_config 'default'
 	list configs 'default'
 	option subconverter_base_url 'http://127.0.0.1:25500/sub?'
 

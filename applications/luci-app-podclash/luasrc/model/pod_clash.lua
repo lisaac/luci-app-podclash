@@ -366,7 +366,8 @@ _clash.switch_config = function(config_file)
     })
 
     if code < 300 then 
-      uci:set(global_config, "global", "config", config_file)
+      -- uci:set(global_config, "global", "config", config_file)
+      uci:set(global_config, "global", "using_config", config_file)
       uci:commit(global_config)
     end
     json = luci.jsonc.parse(json)

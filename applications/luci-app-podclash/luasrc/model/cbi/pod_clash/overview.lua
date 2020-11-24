@@ -2,6 +2,7 @@ local m, s, o
 local uci = require "luci.model.uci"
 local global_config = "pod_clash"
 local config_file = uci:get(global_config, "global", "config")
+local using_config = uci:get(global_config, "global", "using_config")
 
 local pod_clash = require "luci.model.pod_clash"
 local pod_info = {}
@@ -98,8 +99,8 @@ for _, conf in ipairs(configs) do
 	local proxies_num = 0
 	uci:foreach(proxies_conf, "proxy", function(_section)
 		local e = uci:get(proxies_conf, _section[".name"], "enable")
-		local t = uci:get(proxies_conf, _section[".name"], "type")
-		if e == "true" and t ~= "proxy_provider" then proxies_num = proxies_num + 1 end
+		-- local t = uci:get(proxies_conf, _section[".name"], "type")
+		if e == "true" then proxies_num = proxies_num + 1 end
 	end)
 
 	uci:foreach(proxies_conf, "proxy_group", function(_section)
@@ -134,7 +135,7 @@ o.inputstyle = "apply"
 o = s:option(Button, "switch")
 o.template = "pod_clash/cbi/disabled_button"
 o.render = function(self, section, scope)
-	if config_file == section then
+	if using_config == section then
 		self.inputtitle = translate("Reload (Using)")
 		self.inputstyle = "remove"
 		self.view_disabled = false
@@ -158,12 +159,37 @@ o.write = function(self, section, value)
 	end
 end
 
+o = s:option(Button, "edit")
+o.template = "pod_clash/cbi/disabled_button"
+o.render = function(self, section, scope)
+	if config_file == section then
+		self.inputtitle = translate("Editing")
+		self.inputstyle = "remove"
+		self.view_disabled = false
+	else
+		self.inputtitle = translate("Edit")
+		self.inputstyle = "add"
+		self.view_disabled = false
+	end
+	Button.render(self, section, scope)
+end
+o.forcewrite = true
+o.write = function(self, section, value)
+	if value ~= translate("Edit") then
+		return
+	end
+	uci:set(global_config, "global", "config", section)
+	uci:commit(global_config)
+	luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
+
+end
+
 o = s:option(Button, "remove")
 o.template = "pod_clash/cbi/disabled_button"
 o.inputtitle = translate("Remove")
 o.inputstyle = "remove"
 o.render = function(self, section, scope)
-	if config_file == section or section == "default" then
+	if config_file == section or section == "default" or using_config == section then
 		self.view_disabled = true
 	else
 		self.view_disabled = false
