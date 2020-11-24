@@ -497,6 +497,7 @@ _clash.validate_rules = function(proxies_info_list, proxy_group_info_list, rule_
 end
 
 _clash.validate_proxies = function(proxies_config)
+  -- TODO: need validate more details
   local proxies_info_list = {}
   local message = "ok"
   uci:foreach(proxies_config, "proxy", function(_section)
@@ -665,8 +666,8 @@ _clash.gen_proxies_config = function(proxies_config)
         type = section.type,
         server = section.server,
         port = section.port,
-        chpher = section.ss_cipher,
-        password = section.password,
+        cipher = section.ss_cipher or "",
+        password = section.password or "",
         plugin = section.ss_plugin,
         ["plugin-opts"] = {
           mode = section.ss_mode,
@@ -690,7 +691,7 @@ _clash.gen_proxies_config = function(proxies_config)
           port = section.port and tonumber(section.port),
           uuid = section.vmess_uuid,
           alterId = section.vmess_alter_id and tonumber(section.vmess_alter_id),
-          cipher = section.vmess_cipher,
+          cipher = section.vmess_cipher or "",
           udp = section.udp == "true" and true or false,
           tls = section.tls == "true" and true or false,
           ["skip-cert-verify"] = section.skip_cert_verify == "true" and true or false,
