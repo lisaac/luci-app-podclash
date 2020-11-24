@@ -15,7 +15,7 @@ clash_info['01pod_ip'] = {_key=translate("POD IP"),_value='-'}
 clash_info['11clash_running_mode'] = {_key=translate("Running Mode"),_value='-'}
 clash_info['12clash_allow_lan'] = {_key=translate("Allow Lan"),_value='-'}
 clash_info['13clash_ports'] = {_key=translate("Clash Ports"),_value='-'}
--- clash_info['22clash_dashboard'] = {_key=translate("Clash Dashboard"),_value='-'}
+clash_info['22clash_dashboard'] = {_key=translate("Clash Dashboard"),_value='-'}
 clash_info['21external_controller'] = {_key=translate("External Controller"),_value='-'}
 
 local pod_ip = pod_clash.get_pod_ip()
@@ -36,7 +36,7 @@ if pod_ip then
 		clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode:upper()
 		clash_info['12clash_allow_lan']["_value"] = res["allow-lan"] and "TRUE" or "FALSE"
 		clash_info['13clash_ports']["_value"] = clash_info['12clash_allow_lan']["_value"] == "TRUE" and ("HTTP: " .. ( res["port"] or "" ) .. " | SOCKS5: " .. (res["socks-port"] or "").." | MIXED: "..(res["mixed-port"] or "")) or "-"
-		-- clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip.."'>http://"..pod_ip.."</a>"
+		clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip..":"..clash_port.."/ui'>http://"..pod_ip..":"..clash_port.."/ui</a>"
 		clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>secret: "..clash_secret
 	end
 else

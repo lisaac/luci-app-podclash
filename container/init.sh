@@ -5,6 +5,7 @@ CLASH_PORT=7892
 CLASH_DNS_PORT=53
 CLASH_FAKE_IP=$(grep fake-ip-range: /clash/clash.yaml | awk -F'[:",]' '{ for(i=1; i<=NF; i++) if($i ~ /fake-ip-range/) print $(i+2)}')
 SUBCONVERTER_PATH="/subconverter"
+YACD_PATH="$CLASH_PATH/yacd"
 
 function update_clash(){
   echo "$(date +%Y-%m-%d\ %T) Updating clash.."
@@ -24,7 +25,8 @@ function update_clash(){
   gunzip clash.gz && chmod +x clash
   rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
 
-  echo -e "port: 7890\nexternal-controller: \":9090\"\nsecret: \"podclash\"\n" > /clash/config.yaml
+  echo "$(date +%Y-%m-%d\ %T) Creating default clash config.."
+  echo -e "port: 7890\nexternal-ui: \"/clash/yacd/\"\nexternal-controller: \":9090\"\nsecret: \"podclash\"\n" > /clash/config.yaml
 }
 
 function update_geoip(){
@@ -46,11 +48,22 @@ function update_subconverter(){
   subconverter_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/tindy2013/subconverter/releases/latest | grep 'tag_name' | cut -d\" -f4)"
   subconverter_url="https://github.com/tindy2013/subconverter/releases/download/${subconverter_latest_ver}/subconverter_${subconverter_arch}.tar.gz"
   mkdir -p ${SUBCONVERTER_PATH}
-  rm -fr /subconverter.tar.gz &> /dev/null
+  rm -fr /tmp/subconverter.tar.gz &> /dev/null
   wget ${subconverter_url} -O /tmp/subconverter.tar.gz
   rm -fr ${SUBCONVERTER_PATH}/*
   tar zxf /tmp/subconverter.tar.gz -C /
   rm -fr /tmp/subconverter.tar.gz &> /dev/null
+}
+
+function update_yacd(){
+  echo "$(date +%Y-%m-%d\ %T) Updating YACD.."
+  ycad_url="https://github.com/haishanh/yacd/archive/gh-pages.zip"
+  rm -fr /tmp/yacd.zip &> /dev/null
+  wget ${ycad_url} -O /tmp/yacd.zip
+  rm -fr ${YACD_PATH} &> /dev/null
+  unzip /tmp/yacd.zip -d $CLASH_PATH
+  mv $CLASH_PATH/yacd-gh-pages $YACD_PATH &> /dev/null
+  rm $YACD_PATH/CNAME &> /dev/null
 }
 
 function set_iptables {
@@ -215,7 +228,10 @@ function stop(){
 
 case $1 in
   daemon) update_clash && update_geoip && start && tail -f /var/log/clash.log;;
-  update) update_clash && update_geoip && update_subconverter;;
+  update) update_clash && update_geoip && update_subconverter && update_yacd;;
+  update_yacd) update_yacd;;
+  update_geoip) update_geoip;;
+  update_bin) update_clash && update_subconverter;;
   stop) stop;;
   *) stop ; start;;
 esac
