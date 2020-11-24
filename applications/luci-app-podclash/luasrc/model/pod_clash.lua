@@ -141,7 +141,7 @@ _clash.parse_proxies = function(proxies_config, proxies_table)
       end
       s_name = uci:section(proxies_config, "proxy", nil, proxy_config)
       if s_name then
-        stat = stat and luci.model.uci:save(proxies_config)
+        stat = stat and uci:save(proxies_config)
       end
     end
   end
@@ -168,7 +168,7 @@ _clash.parse_proxy_providers = function(proxy_providers_config, proxy_providers_
     })
 
     if s_name then
-      stat = stat and luci.model.uci:save(proxy_providers_config)
+      stat = stat and uci:save(proxy_providers_config)
     end
   end
   return stat
@@ -205,7 +205,7 @@ _clash.parse_proxy_groups = function(proxy_groups_config, proxy_groups_table)
       })
 
       if s_name then
-        stat = stat and luci.model.uci:save(proxy_groups_config)
+        stat = stat and uci:save(proxy_groups_config)
       end
     end
   end
@@ -242,7 +242,7 @@ _clash.parse_rules = function(rules_config, rules_table)
       })
     end
     if s_name then
-      stat = stat and luci.model.uci:save(rules_config)
+      stat = stat and uci:save(rules_config)
     end
   end
   if stat == true then
@@ -269,7 +269,7 @@ _clash.parse_rule_providers = function(rule_providers_config, rule_providers_tab
         interval = v.interval
       })
       if s_name then
-        stat = stat and luci.model.uci:save(rule_providers_config)
+        stat = stat and uci:save(rule_providers_config)
       end
     end
   end
@@ -354,7 +354,7 @@ _clash.switch_config = function(config_file)
   if pod_ip then
   -- handle clash api
     local httpclient = require "luci.httpclient"
-    local pod_config = luci.model.uci:get(global_config, "pod", "pod_config")
+    local pod_config = uci:get(global_config, "pod", "pod_config")
   -- regeneratere config file
     nixio.fs.mkdirr("/tmp/conf.d/"..pod_name)
     nixio.fs.writefile("/tmp/conf.d/"..pod_name.."/config.yaml", _clash.gen_config(config_file))
@@ -402,97 +402,97 @@ _clash.validate_rule_providers = function(rule_providers_config)
   local rule_providers_list = {}
   local message = "ok"
   uci:foreach(rule_providers_config, "rule_provider", function(_section)
-      local e = uci:get(proxies_config, _section[".name"], "enable")
-      if e ~= "true" then return end
-      local n = uci:get(proxies_config, _section[".name"], "name")
-      local t = uci:get(proxies_config, _section[".name"], "type")
-      local behavior = uci:get(proxies_config, _section[".name"], "behavior")
-      if not behavior or behavior == "" then
+    local e = uci:get(proxies_config, _section[".name"], "enable")
+    if e ~= "true" then return end
+    local n = uci:get(proxies_config, _section[".name"], "name")
+    local t = uci:get(proxies_config, _section[".name"], "type")
+    local behavior = uci:get(proxies_config, _section[".name"], "behavior")
+    if not behavior or behavior == "" then
+      uci:set(rules_config, _section[".name"], "enable", "false")
+      message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no BEHAVIOR")
+      return
+    end
+    if t == "http" then
+      local interval = uci:get(proxies_config, _section[".name"], "interval")
+      local url = uci:get(proxies_config, _section[".name"], "url")
+      if not interval or interval == "" or not url or url == "" then
         uci:set(rules_config, _section[".name"], "enable", "false")
-        message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no BEHAVIOR")
+        message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no URL or PATH or INTERVAL")
         return
       end
-      if t == "http" then
-        local interval = uci:get(proxies_config, _section[".name"], "interval")
-        local url = uci:get(proxies_config, _section[".name"], "url")
-        if not interval or interval == "" or not url or url == "" then
-          uci:set(rules_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no URL or PATH or INTERVAL")
-          return
-        end
-      elseif t == "file" then
-        local path = uci:get(proxies_config, _section[".name"], "path")
-        if not path or path == "" then
-					uci:set(rules_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no PATH")
-          return
-        end
+    elseif t == "file" then
+      local path = uci:get(proxies_config, _section[".name"], "path")
+      if not path or path == "" then
+        uci:set(rules_config, _section[".name"], "enable", "false")
+        message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no PATH")
+        return
       end
+    end
 
-      if rule_providers_list[n] then
-        uci:set(rules_config, _section[".name"], "enable", "false")
-        message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due Duplicate with an existing provider!")
-        return
-      end
-      rule_providers_list[n] = {
-        enable = e,
-        type = t,
-        behavior = behavior
-      }
-    end)
-    return rule_providers_list, message
+    if rule_providers_list[n] then
+      uci:set(rules_config, _section[".name"], "enable", "false")
+      message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due Duplicate with an existing provider!")
+      return
+    end
+    rule_providers_list[n] = {
+      enable = e,
+      type = t,
+      behavior = behavior
+    }
+  end)
+  return rule_providers_list, message
 end
 
 _clash.validate_rules = function(proxies_info_list, proxy_group_info_list, rule_providers_list, rules_config)
   local rules_list = {}
   local message = "ok"
   uci:foreach(rules_config, "rule", function(_section)
-      local e = uci:get(proxies_config, _section[".name"], "enable")
-      if e ~= "true" then return end
-      local rule_type = uci:get(proxies_config, _section[".name"], "rule_type")
-      local matcher = uci:get(proxies_config, _section[".name"], "matcher")
-      local proxy = uci:get(proxies_config, _section[".name"], "proxies")
-      if not rule_type or rule_type == "" or not matcher or matcher == "" or not proxy and proxy == "" then
-        uci:set(proxies_config, _section[".name"], "enable", "false")
-        message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due no TYPE or no MATCHER or no PROXY")
+    local e = uci:get(proxies_config, _section[".name"], "enable")
+    if e ~= "true" then return end
+    local rule_type = uci:get(proxies_config, _section[".name"], "rule_type")
+    local matcher = uci:get(proxies_config, _section[".name"], "matcher")
+    local proxy = uci:get(proxies_config, _section[".name"], "proxies")
+    if not rule_type or rule_type == "" or not matcher or matcher == "" or not proxy and proxy == "" then
+      uci:set(proxies_config, _section[".name"], "enable", "false")
+      message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due no TYPE or no MATCHER or no PROXY")
+      return
+    elseif rule_type == "RULE-SET" then
+      if not rule_provider_info_list[matcher] or rule_provider_info_list[matcher]["enable"] ~= "true" then
+        uci:set(rules_config, _section[".name"], "enable", "false")
+        message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due disabled rule provider or no rule provider")
         return
-      elseif rule_type == "RULE-SET" then
-        if not rule_provider_info_list[matcher] or rule_provider_info_list[matcher]["enable"] ~= "true" then
-          uci:set(rules_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due disabled rule provider or no rule provider")
-          return
-        end
-      elseif rule_type == "DST-PORT" or rule_type == "SRC-PORT" then
-        if not matcher:match("^%d+$") then
-          uci:set(rules_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due invalid PORT matcher")
-          return
-        end
-      elseif rule_type == "SRC-IP-CIDR" or rule_type == "IP-CIDR" then
-        local ip = luci.ip.new(matcher)
-        if not ip or not ip:is4() then
-          uci:set(rules_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due invalid IP-CIDR matcher")
-          return
-        end
-      elseif rule_type == "IP-CIDR6" then
-        local ip = luci.ip.new(matcher)
-        if not ip or not ip:is6() then
-          uci:set(rules_config, _section[".name"], "enable", "false")
-          message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due invalid IP-CIDR6 matcher")
-          return
-        end
       end
+    elseif rule_type == "DST-PORT" or rule_type == "SRC-PORT" then
+      if not matcher:match("^%d+$") then
+        uci:set(rules_config, _section[".name"], "enable", "false")
+        message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due invalid PORT matcher")
+        return
+      end
+    elseif rule_type == "SRC-IP-CIDR" or rule_type == "IP-CIDR" then
+      local ip = luci.ip.new(matcher)
+      if not ip or not ip:is4() then
+        uci:set(rules_config, _section[".name"], "enable", "false")
+        message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due invalid IP-CIDR matcher")
+        return
+      end
+    elseif rule_type == "IP-CIDR6" then
+      local ip = luci.ip.new(matcher)
+      if not ip or not ip:is6() then
+        uci:set(rules_config, _section[".name"], "enable", "false")
+        message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due invalid IP-CIDR6 matcher")
+        return
+      end
+    end
 
-      if proxy ~= "REJECT" and proxy ~= "DIRECT" then
-        if not proxies_info_list[proxy] and not proxy_group_info_list[proxy] then
-          uci:set(rules_config, _section[".name"], "enable", "false")
-					m.message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due INVALID PROXIES")
-          return
-        end
+    if proxy ~= "REJECT" and proxy ~= "DIRECT" then
+      if not proxies_info_list[proxy] and not proxy_group_info_list[proxy] then
+        uci:set(rules_config, _section[".name"], "enable", "false")
+        m.message = luci.dispatcher.translate("Some RULE(s) had been DISABLED, due INVALID PROXIES")
+        return
       end
-    end)
-    return {}, message
+    end
+  end)
+  return {}, message
 end
 
 _clash.validate_proxies = function(proxies_config)
@@ -579,8 +579,6 @@ _clash.validate_proxy_groups = function(proxies_info_list, proxy_groups_config)
           end
         end
       end
-      luci.util.perror(n)
-
       valid_proxy_group_info_list[n] = {
         enable = e
       }
