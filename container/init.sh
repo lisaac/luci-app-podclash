@@ -1,11 +1,12 @@
 #!/bin/sh
 
 CLASH_PATH="/clash"
+CLASH_CONFIG="$CLASH_PATH/config.yaml"
 CLASH_PORT=7892
 CLASH_DNS_PORT=53
-CLASH_FAKE_IP=$(grep fake-ip-range: /clash/clash.yaml | awk -F'[:",]' '{ for(i=1; i<=NF; i++) if($i ~ /fake-ip-range/) print $(i+2)}')
 SUBCONVERTER_PATH="/subconverter"
 YACD_PATH="$CLASH_PATH/yacd"
+[ -f "$CLASH_CONFIG" ] && CLASH_FAKE_IP=$(grep fake-ip-range: ${CLASH_CONFIG} | awk -F'[:",]' '{ for(i=1; i<=NF; i++) if($i ~ /fake-ip-range/) print $(i+2)}')
 
 function update_clash(){
   echo "$(date +%Y-%m-%d\ %T) Updating clash.."
@@ -24,9 +25,6 @@ function update_clash(){
   cd ${CLASH_PATH} && rm -fr clash &> /dev/null
   gunzip clash.gz && chmod +x clash
   rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
-
-  echo "$(date +%Y-%m-%d\ %T) Creating default clash config.."
-  echo -e "port: 7890\nexternal-ui: \"/clash/yacd/\"\nexternal-controller: \":9090\"\nsecret: \"podclash\"\n" > /clash/config.yaml
 }
 
 function update_geoip(){
@@ -111,10 +109,8 @@ function set_iptables {
   iptables -t nat -A PREROUTING -p tcp -j CLASH
   iptables -t nat -A POSTROUTING -j S_NAT
 
-echo $CLASH_FAKE_IP
   [ -n "$CLASH_FAKE_IP" ] && \
   iptables -t nat -N FAKE_IP && \
-  iptables -t nat -A OUTPUT -p tcp -j FAKE_IP && \
   iptables -t nat -A FAKE_IP -p tcp -d "$CLASH_FAKE_IP" -j REDIRECT --to-port "$CLASH_PORT" && \
   iptables -t nat -A OUTPUT -p tcp -j FAKE_IP
 
@@ -147,7 +143,7 @@ echo $CLASH_FAKE_IP
   iptables -t mangle -A PREROUTING -p udp -j CLASH
 
   [ -n "$CLASH_FAKE_IP" ] && \
-  iptables -t nat -A OUTPUT -j FAKE_IP && \
+  iptables -t mangle -N FAKE_IP && \
   iptables -t mangle -A FAKE_IP -p udp -d "$CLASH_FAKE_IP" -j MARK --set-mark 1 && \
   iptables -t mangle -A OUTPUT -p udp -j FAKE_IP
 }
@@ -200,11 +196,24 @@ function flush_iptables {
 
 function start_clash(){
   echo "$(date +%Y-%m-%d\ %T) Starting clash.."
-  ${CLASH_PATH}/clash -d ${CLASH_PATH} &> /var/log/clash.log &
+  [ -f "${CLASH_CONFIG}" ] && {
+    echo "$(date +%Y-%m-%d\ %T)   - Using custom config.."
+    kill -9 $(pidof clash) &> /dev/null
+    ${CLASH_PATH}/clash -f ${CLASH_CONFIG} -d ${CLASH_PATH} &> /var/log/clash.log &
+    sleep 3
+  }
+  [ ! -n "$(pidof clash)" ] && {
+    # custom config apply not success
+    echo "$(date +%Y-%m-%d\ %T)   - ERROR: Use custom config failed, Using default config.."
+    echo -e 'port: 7890\nmode: "direct"\nallow-lan: true\nredir-port: '${CLASH_PORT}'\nexternal-ui: "/clash/yacd/"\nexternal-controller: ":9090"\nsecret: "podclash"\ndns: { enhanced-mode: "redir-host", ipv6: false, fake-ip-range: "198.18.0.1/16", enable: true, fallback: [ "tls://dns.google", "https://cloudflare-dns.com/dns-query", "tls://1.1.1.1:853" ], fake-ip-filter: [ "*.lan", "localhost.ptlogin2.qq.com" ], listen: "0.0.0.0:53", default-nameserver: [ "114.114.114.114", "8.8.8.8" ], nameserver: [ "114.114.114.114", "223.5.5.5" ], fallback-filter: { geoip: true, ipcidr: [ "240.0.0.0/4" ] }, use-hosts: true }\nrules:\n  - MATCH,DIRECT' > /clash/default.yaml
+    kill -9 $(pidof clash) &> /dev/null
+    ${CLASH_PATH}/clash -f ${CLASH_PATH}/default.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
+  }
 }
 
 function start_subconverter(){
   echo "$(date +%Y-%m-%d\ %T) Starting subconverter.."
+  kill -9 $(pidof subconverter) &> /dev/null
   ${SUBCONVERTER_PATH}/subconverter &> /var/log/subconverter.log &
 }
 

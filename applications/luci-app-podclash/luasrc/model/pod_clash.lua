@@ -628,8 +628,7 @@ mode: "%s"
 log-level: "%s"
 external-ui: "/clash/yacd/"
 external-controller: ":9090"
-secret: "podclash"]], general_table.port or "", general_table.redir_port or "7892", general_table.socks_port or "", general_table.mixed_port or ""
-    , general_table.allow_lan, syaml.encode(general_table.authentication or {}), general_table.mode or ""
+secret: "podclash"]], general_table.port or "", general_table.redir_port or "7892", general_table.socks_port or "", general_table.mixed_port or "", general_table.allow_lan or "true", syaml.encode(general_table.authentication or {}), general_table.mode or ""
     , general_table.log_level or "info")
 end
 

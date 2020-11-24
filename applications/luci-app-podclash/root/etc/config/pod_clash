@@ -5,6 +5,6 @@ config clash 'global'
 
 config clash 'pod'
 	option pod_config_path '/clash'
-	option pod_config '/clash/clash.yaml'
+	option pod_config '/clash/config.yaml'
 	option pod_name 'pod_clash'
 	option image_name 'lisaac/podclash'
