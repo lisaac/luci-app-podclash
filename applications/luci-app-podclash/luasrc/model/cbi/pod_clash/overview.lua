@@ -25,7 +25,6 @@ local pod_ip, pod_status = pod_clash.get_pod_ip()
 local pod_name = uci:get(global_config, "pod", "pod_name")
 local image_name = uci:get(global_config, "pod", "image_name")
 if pod_ip then
-
 	if pod_status == "running" then
 		local httpclient = require "luci.httpclient"
 		-- local secret = uci:get("pod_clash_general_"..config_file, "general", "secret")
@@ -137,33 +136,6 @@ o.template = "pod_clash/cbi/view_button"
 o.inputtitle = translate("View")
 o.inputstyle = "apply"
 
-o = s:option(Button, "switch")
-o.template = "pod_clash/cbi/disabled_button"
-o.render = function(self, section, scope)
-	if using_config == section then
-		self.inputtitle = translate("Reload (Using)")
-		self.inputstyle = "remove"
-		self.view_disabled = false
-	else
-		self.inputtitle = translate("Use")
-		self.inputstyle = "add"
-		self.view_disabled = false
-	end
-	Button.render(self, section, scope)
-end
-o.forcewrite = true
-o.write = function(self, section, value)
-	-- if value ~= translate("Use") then
-	-- 	return
-	-- end
-	local code, msg = pod_clash.switch_config(section)
-	if code and code < 300 then
-		luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
-	else
-		m.message = msg
-	end
-end
-
 o = s:option(Button, "edit")
 o.template = "pod_clash/cbi/disabled_button"
 o.render = function(self, section, scope)
@@ -186,7 +158,36 @@ o.write = function(self, section, value)
 	uci:set(global_config, "global", "config", section)
 	uci:commit(global_config)
 	luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
+end
 
+o = s:option(Button, "switch")
+o.template = "pod_clash/cbi/disabled_button"
+o.render = function(self, section, scope)
+	if using_config == section then
+		self.inputtitle = translate("Reload (Using)")
+		self.inputstyle = "remove"
+		self.view_disabled = false
+	else
+		self.inputtitle = translate("Use")
+		self.inputstyle = "add"
+		self.view_disabled = false
+	end
+	if not pod_ip or pod_status ~= "running" then
+		self.view_disabled = true
+	end
+	Button.render(self, section, scope)
+end
+o.forcewrite = true
+o.write = function(self, section, value)
+	-- if value ~= translate("Use") then
+	-- 	return
+	-- end
+	local code, msg = pod_clash.switch_config(section)
+	if code and code < 300 then
+		luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
+	else
+		m.message = msg
+	end
 end
 
 o = s:option(Button, "remove")

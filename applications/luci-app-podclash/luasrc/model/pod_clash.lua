@@ -350,8 +350,8 @@ _clash.switch_config = function(config_file)
   local clash_secret = "podclash"
   local pod_name = uci:get(global_config, "pod", "pod_name")
   if not pod_name then return end
-  local pod_ip = _clash.get_pod_ip()
-  if pod_ip then
+  local pod_ip, pod_status = _clash.get_pod_ip()
+  if pod_ip and pod_status == "running" then
   -- handle clash api
     local httpclient = require "luci.httpclient"
     local pod_config = uci:get(global_config, "pod", "pod_config")
