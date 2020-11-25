@@ -223,8 +223,8 @@ function start(){
       sysctl -w net.ipv4.conf.$dir.send_redirects=0 &>/dev/null
   done
   set_iptables
-  start_clash
   start_subconverter
+  start_clash
 }
 
 function stop(){

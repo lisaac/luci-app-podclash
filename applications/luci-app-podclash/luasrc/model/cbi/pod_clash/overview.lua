@@ -21,51 +21,56 @@ clash_info['13clash_ports'] = {_key=translate("Clash Ports"),_value='-'}
 clash_info['22clash_dashboard'] = {_key=translate("Clash Dashboard"),_value='-'}
 clash_info['21external_controller'] = {_key=translate("External Controller"),_value='-'}
 
-local pod_ip = pod_clash.get_pod_ip()
+local pod_ip, pod_status = pod_clash.get_pod_ip()
 local pod_name = uci:get(global_config, "pod", "pod_name")
 local image_name = uci:get(global_config, "pod", "image_name")
 if pod_ip then
-	local httpclient = require "luci.httpclient"
-	-- local secret = uci:get("pod_clash_general_"..config_file, "general", "secret")
-	-- local port = uci:get("pod_clash_general_"..config_file, "general", "external_controller"):match(".-:(.+)")
-	local clash_secret = "podclash"
-	local clash_port = "9090"
 
-	local code, header, json = httpclient.request_raw("http://"..pod_ip..":"..clash_port.."/configs", {headers = {Authorization = "Bearer "..clash_secret}})
-	if code < 300 then
-		local res = luci.jsonc.parse(json)
-			clash_info['00pod_name']["_value"] = "<a href='"..luci.dispatcher.build_url("admin/docker/container/"..pod_name).."' >"..pod_name .. "</a>"
-			clash_info['01pod_ip']["_value"] = pod_ip
-		if type(res) == "table" then
-			clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode
-			-- clash_info['12clash_allow_lan']["_value"] = res["allow-lan"] and "TRUE" or "FALSE"
-			clash_info['13clash_ports']["_value"] = res["allow-lan"] and ("Http: " .. ( res["port"] or "" ) .. " | Socks5: " .. (res["socks-port"] or "").." | Mixed: "..(res["mixed-port"] or "")) or "-"
-			clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip..":"..clash_port.."/ui'>http://"..pod_ip..":"..clash_port.."/ui</a>"
-			clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>Secret: "..clash_secret
-		end
-		clash_info['12clash_proxies_rules']["_value"] = "Proxies: "
-		json = httpclient.request_to_buffer("http://"..pod_ip..":"..clash_port.."/proxies", {headers = {Authorization = "Bearer "..clash_secret}})
-		res = luci.jsonc.parse(json)
-		if type(res) == "table" and type(res.proxies) == "table" then
-			count = 0
-			for k, v in pairs(res.proxies) do
-				count = count + 1
+	if pod_status == "running" then
+		local httpclient = require "luci.httpclient"
+		-- local secret = uci:get("pod_clash_general_"..config_file, "general", "secret")
+		-- local port = uci:get("pod_clash_general_"..config_file, "general", "external_controller"):match(".-:(.+)")
+		local clash_secret = "podclash"
+		local clash_port = "9090"
+
+		local code, header, json = httpclient.request_raw("http://"..pod_ip..":"..clash_port.."/configs", {headers = {Authorization = "Bearer "..clash_secret}})
+		if code and code < 300 then
+			local res = luci.jsonc.parse(json)
+				clash_info['00pod_name']["_value"] = "<a href='"..luci.dispatcher.build_url("admin/docker/container/"..pod_name).."' >"..pod_name .. "</a>"
+				clash_info['01pod_ip']["_value"] = pod_ip
+			if type(res) == "table" then
+				clash_info['11clash_running_mode']["_value"] = res["mode"] and res.mode
+				-- clash_info['12clash_allow_lan']["_value"] = res["allow-lan"] and "TRUE" or "FALSE"
+				clash_info['13clash_ports']["_value"] = res["allow-lan"] and ("Http: " .. ( res["port"] or "" ) .. " | Socks5: " .. (res["socks-port"] or "").." | Mixed: "..(res["mixed-port"] or "")) or "-"
+				clash_info['22clash_dashboard']["_value"] = "<a href='http://"..pod_ip..":"..clash_port.."/ui'>http://"..pod_ip..":"..clash_port.."/ui</a>"
+				clash_info['21external_controller']["_value"] = "http://" .. pod_ip .. ":" .. clash_port ..  "<br>Secret: "..clash_secret
 			end
-			count = count - 3 -- 3 build-in proxy: DIRECT, REJECT, GLOBAL
-			clash_info['12clash_proxies_rules']["_value"] = clash_info['12clash_proxies_rules']["_value"] .. tostring(count)
+			clash_info['12clash_proxies_rules']["_value"] = "Proxies: "
+			json = httpclient.request_to_buffer("http://"..pod_ip..":"..clash_port.."/proxies", {headers = {Authorization = "Bearer "..clash_secret}})
+			res = luci.jsonc.parse(json)
+			if type(res) == "table" and type(res.proxies) == "table" then
+				count = 0
+				for k, v in pairs(res.proxies) do
+					count = count + 1
+				end
+				count = count - 3 -- 3 build-in proxy: DIRECT, REJECT, GLOBAL
+				clash_info['12clash_proxies_rules']["_value"] = clash_info['12clash_proxies_rules']["_value"] .. tostring(count)
+			end
+		
+			clash_info['12clash_proxies_rules']["_value"] =  clash_info['12clash_proxies_rules']["_value"] .. " | Rules: "
+			json = httpclient.request_to_buffer("http://"..pod_ip..":"..clash_port.."/rules", {headers = {Authorization = "Bearer "..clash_secret}})
+			res = luci.jsonc.parse(json)
+			if type(res) == "table" and type(res.rules) == "table"  then
+					clash_info['12clash_proxies_rules']["_value"] = clash_info['12clash_proxies_rules']["_value"] .. #res.rules
+			end
 		end
-	
-		clash_info['12clash_proxies_rules']["_value"] =  clash_info['12clash_proxies_rules']["_value"] .. " | Rules: "
-		json = httpclient.request_to_buffer("http://"..pod_ip..":"..clash_port.."/rules", {headers = {Authorization = "Bearer "..clash_secret}})
-		res = luci.jsonc.parse(json)
-		if type(res) == "table" and type(res.rules) == "table"  then
-				clash_info['12clash_proxies_rules']["_value"] = clash_info['12clash_proxies_rules']["_value"] .. #res.rules
-		end
+	else
+		clash_info['00pod_name']["_value"] = "<a href=\""..luci.dispatcher.build_url("admin/docker/container/"..pod_name).."\" >"..
+	translate("The Pod(container) 「".. pod_name.. "」is not running, please start it first!").."</a>"
+		m.message = translate("There are no Pod(container) named ".. pod_name.. ", please create it first!")
 	end
-
-
 else
-	cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai --restart unless-stopped --name " .. pod_name .. " ".. image_name
+	cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 --restart unless-stopped --name " .. pod_name .. " ".. image_name
 	clash_info['00pod_name']["_value"] = "<a href=\""..luci.dispatcher.build_url("admin/docker/newcontainer/".. luci.util.urlencode(cmd)).."\" >"..
 	translate("There is no Pod(container) named 「".. pod_name.. "」, please create it first!").."</a>"
 	m.message = translate("There are no Pod(container) named ".. pod_name.. ", please create it first!")
@@ -152,7 +157,7 @@ o.write = function(self, section, value)
 	-- 	return
 	-- end
 	local code, msg = pod_clash.switch_config(section)
-	if code < 300 then
+	if code and code < 300 then
 		luci.http.redirect(luci.dispatcher.build_url("admin/services/pod_clash/overview"))
 	else
 		m.message = msg

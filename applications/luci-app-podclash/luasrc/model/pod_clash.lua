@@ -13,7 +13,7 @@ _clash.get_pod_ip = function()
     local pod_info = res.body
     if (type(pod_info.NetworkSettings) == "table" and type(pod_info.NetworkSettings.Networks) == "table") then
       for _, v in pairs(pod_info.NetworkSettings.Networks) do
-        return v.IPAddress
+        return v.IPAddress, pod_info.State.Status
       end
     end
   end
@@ -365,7 +365,7 @@ _clash.switch_config = function(config_file)
       body = "{\"path\":\""..pod_config.."\"}"
     })
 
-    if code < 300 then 
+    if code and code < 300 then 
       -- uci:set(global_config, "global", "config", config_file)
       uci:set(global_config, "global", "using_config", config_file)
       uci:commit(global_config)
