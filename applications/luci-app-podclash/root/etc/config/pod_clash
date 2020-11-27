@@ -1,10 +1,10 @@
-config clash 'global'
+config podclash 'global'
 	option config 'default'
 	option using_config 'default'
 	list configs 'default'
 	option subconverter_base_url 'http://127.0.0.1:25500/sub?'
 
-config clash 'pod'
+config pod 'pod'
 	option pod_config_path '/clash'
 	option pod_config '/clash/config.yaml'
 	option pod_name 'pod_clash'

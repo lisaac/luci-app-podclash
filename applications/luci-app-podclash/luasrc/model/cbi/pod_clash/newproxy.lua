@@ -119,15 +119,15 @@ s = m:section(NamedSection, sid, "proxy")
 	o_provider_type:value("file", "file")
 
 	local o_provider_path = s:option(Value, "provider_path", translate("Path"))
-	o_provider_path.rmempty = false
+	-- o_provider_path.rmempty = false
 	o_provider_path:depends("type", "proxy_provider")
 
 	local o_provider_url = s:option(Value, "provider_url", translate("URL"))
-	o_provider_url.rmempty = false
+	-- o_provider_url.rmempty = false
 	o_provider_url:depends("provider_type", "http")
 
 	o = s:option(Value, "provider_interval", translate("Interval"))
-	o.rmempty = false
+	-- o.rmempty = false
 	o:depends("provider_type", "http")
 	o.default = 3600
 	o.placeholder = 3600
@@ -137,16 +137,16 @@ s = m:section(NamedSection, sid, "proxy")
 	o.default = "true"
 	o.disabled = "false"
 	o.enabled = "true"
-	o.rmempty = false
+	-- o.rmempty = false
 
 	o = s:option(Value, "provider_health_check_url", translate("Health check URL"))
-	o.rmempty = false
+	-- o.rmempty = false
 	o:depends("provider_health_check", "true")
 	o.default = "http://www.gstatic.com/generate_204"
 	o.placeholder = "http://www.gstatic.com/generate_204"
 
 	o = s:option(Value, "provider_health_check_interval", translate("Health check interval"))
-	o.rmempty = false
+	-- o.rmempty = false
 	o:depends("provider_health_check", "true")
 	o.default = 300
 
@@ -161,7 +161,7 @@ s = m:section(NamedSection, sid, "proxy")
 
 -- vmess
 	o = s:option(Value, "vmess_uuid", translate("UUID"))
-	o.rmempty = false
+	-- o.rmempty = false
 	o:depends("type", "vmess")
 	o.validate = function(self, value, section)
 		if not value:match("%x-%-%x-%-%x-%-%x-%-%x+") then
@@ -171,13 +171,13 @@ s = m:section(NamedSection, sid, "proxy")
 	end
 
 	o = s:option(Value, "vmess_alter_id", translate("Alter ID"))
-	o.rmempty = false
+	-- o.rmempty = false
 	o.placeholder = 0
 	o:depends("type", "vmess")
 
 	o = s:option(ListValue, "vmess_cipher", translate("Cipher"))
 	o:depends("type", "vmess")
-	o.rmempty = false
+	-- o.rmempty = false
 	o:value("auto", "auto")
 	o:value("aes-128-gcm", "aes-128-gcm")
 	o:value("chacha20-poly1305 ", "chacha20-poly1305 ")
@@ -203,12 +203,12 @@ s = m:section(NamedSection, sid, "proxy")
 	o:depends("vmess_network", "http")
 	o.disabled = "false"
 	o.enabled = "true"
-	o.rmempty = false
+	-- o.rmempty = false
 
 -- ss
 	o = s:option(ListValue, "ss_cipher", translate("Cipher"))
 	o:depends("type", "ss")
-	o.rmempty = false
+	-- o.rmempty = false
 	for _, v in ipairs(ss_ciphers) do
 		o:value(v, v)
 	end
@@ -243,10 +243,9 @@ s = m:section(NamedSection, sid, "proxy")
 	o:depends("ss_mode", "websocket")
 
 -- ssr
-
 	o = s:option(ListValue, "ssr_cipher", translate("Cipher"))
 	o:depends("type", "ssr")
-	o.rmempty = false
+	-- o.rmempty = false
 	for _, v in ipairs(ssr_ciphers) do
 		o:value(v, v)
 	end
@@ -291,7 +290,7 @@ s = m:section(NamedSection, sid, "proxy")
 	o.password = true
 	o:depends("type", "trojan")
 
-	o = s:option(ListValue, "trojan_sni", translate("Server name"))
+	o = s:option(Value, "trojan_sni", translate("Server name"))
 	o:depends("type", "trojan")
 	o.placeholder = "example.com"
 

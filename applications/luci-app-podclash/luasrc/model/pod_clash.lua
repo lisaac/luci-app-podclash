@@ -39,8 +39,8 @@ _clash.parse_general = function(general_config, general_table)
   uci:set(general_config, "general", "redir_port", general_table["redir-port"] or "7892")
   uci:set(general_config, "general", "socks_port", general_table["socks-port"] or "7891")
   uci:set(general_config, "general", "mixed_port", general_table["mixed-port"] or "7893")
-  uci:set(general_config, "general", "external_controller", general_table["external-controller"] or "0.0.0.0:9090")
-  uci:set(general_config, "general", "secret", general_table["secret"] or "mypass")
+  -- uci:set(general_config, "general", "external_controller", general_table["external-controller"] or "0.0.0.0:9090")
+  -- uci:set(general_config, "general", "secret", general_table["secret"] or "podclash")
   uci:set(general_config, "general", "log_level", general_table["log-level"] or "info")
   uci:set(general_config, "general", "authentication", general_table["authentication"] and next(general_table["authentication"]) and general_table["authentication"] or {'user1:pass1'})
   return stat
@@ -205,6 +205,7 @@ _clash.parse_proxy_groups = function(proxy_groups_config, proxy_groups_table)
       })
 
       if s_name then
+        proxy_groups_name[k] = "enable"
         stat = stat and uci:save(proxy_groups_config)
       end
     end
@@ -269,6 +270,7 @@ _clash.parse_rule_providers = function(rule_providers_config, rule_providers_tab
         interval = v.interval
       })
       if s_name then
+        rule_providers_name[k] = "enable"
         stat = stat and uci:save(rule_providers_config)
       end
     end
@@ -292,6 +294,7 @@ _clash.parse_all = function(config_file, config_table)
     nixio.fs.writefile("/etc/config/"..proxies_config, "")
     nixio.fs.writefile("/etc/config/"..rules_config, "")
     nixio.fs.writefile("/etc/config/"..general_config, "config clash 'general'\n\nconfig clash 'dns'")
+    nixio.fs.writefile("/etc/config/"..script_config, "")
   end
 
   stat = stat and _clash.parse_general(general_config, config_table or {})
@@ -312,6 +315,7 @@ _clash.parse_all = function(config_file, config_table)
     nixio.fs.remove("/etc/config/"..proxies_config)
     nixio.fs.remove("/etc/config/"..rules_config)
     nixio.fs.remove("/etc/config/"..general_config)
+    nixio.fs.remove("/etc/config/"..script_config)
   end
   return stat
 end
@@ -393,36 +397,38 @@ _clash.remove_config = function(config_file)
   local general_config = "pod_clash_general_" .. config_file
   local proxies_config = "pod_clash_proxies_" .. config_file
   local rules_config   = "pod_clash_rules_" .. config_file
+  local script_config   = "pod_clash_script_" .. config_file
 
-  luci.util.exec("rm /etc/config/".. proxies_config .. " >/dev/null 2>&1")
-  luci.util.exec("rm /etc/config/".. rules_config .. " >/dev/null 2>&1")
-  luci.util.exec("rm /etc/config/".. general_config .. " >/dev/null 2>&1")
+  nixio.fs.remove("/etc/config/"..proxies_config)
+  nixio.fs.remove("/etc/config/"..rules_config)
+  nixio.fs.remove("/etc/config/"..general_config)
+  nixio.fs.remove("/etc/config/"..script_config)
 end
 
 _clash.validate_rule_providers = function(rule_providers_config)
   local rule_providers_list = {}
   local message = "ok"
   uci:foreach(rule_providers_config, "rule_provider", function(_section)
-    local e = uci:get(proxies_config, _section[".name"], "enable")
+    local e = uci:get(rule_providers_config, _section[".name"], "enable")
     if e ~= "true" then return end
-    local n = uci:get(proxies_config, _section[".name"], "name")
-    local t = uci:get(proxies_config, _section[".name"], "type")
-    local behavior = uci:get(proxies_config, _section[".name"], "behavior")
+    local n = uci:get(rule_providers_config, _section[".name"], "name")
+    local t = uci:get(rule_providers_config, _section[".name"], "type")
+    local behavior = uci:get(rule_providers_config, _section[".name"], "behavior")
     if not behavior or behavior == "" then
       uci:set(rules_config, _section[".name"], "enable", "false")
       message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no BEHAVIOR")
       return
     end
     if t == "http" then
-      local interval = uci:get(proxies_config, _section[".name"], "interval")
-      local url = uci:get(proxies_config, _section[".name"], "url")
+      local interval = uci:get(rule_providers_config, _section[".name"], "interval")
+      local url = uci:get(rule_providers_config, _section[".name"], "url")
       if not interval or interval == "" or not url or url == "" then
         uci:set(rules_config, _section[".name"], "enable", "false")
         message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no URL or PATH or INTERVAL")
         return
       end
     elseif t == "file" then
-      local path = uci:get(proxies_config, _section[".name"], "path")
+      local path = uci:get(rule_providers_config, _section[".name"], "path")
       if not path or path == "" then
         uci:set(rules_config, _section[".name"], "enable", "false")
         message = luci.dispatcher.translate("Some RULE PROVIDER(s) had been DISABLED, due no PATH")
@@ -615,7 +621,7 @@ end
 -- end
 
 _clash.gen_general_config = function(general_config)
-  local general_table = uci:get_all(general_config, "general")
+  local general_table = uci:get_all(general_config, "general") or {}
   return string.format([[
 port: %s
 redir-port: %s
@@ -633,8 +639,8 @@ secret: "podclash"]], general_table.port or "", general_table.redir_port or "789
 end
 
 _clash.gen_dns_config = function(dns_config)
-  local dns = uci:get_all(dns_config, "dns")
-  local dns_yaml = "\ndns: " .. syaml.encode( {
+  local dns = uci:get_all(dns_config, "dns") or {}
+  local dns_yaml = "\ndns: " .. syaml.encode({
     enable = true,
     ipv6 = dns.ipv6 == "true" and true or false,
     listen = "0.0.0.0:53",
@@ -708,16 +714,16 @@ _clash.gen_proxies_config = function(proxies_config)
       proxy_yaml = "\n  - " .. syaml.encode(vmess)
     elseif section.type == "http" then
       proxy_yaml = string.format('\n  - { name: %s,    type: %s,    server: %s, port: %s, username: %s, password: %s, tls: %s, skip-cert-verify: %s }', 
-      section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false" or "false")
+      section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false")
     elseif section.type == "socks5" then
       proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, username: %s, password: %s, tls: %s, skip-cert-verify: %s, udp: %s }',
       section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false", section.udp or "false")
     elseif section.type == "snell" then
       proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, psk: %s, obfs-opts: { mode: %s, host: %s }}',
-      section.name, section.type, section.server or "", section.port or "", section.snell_psk or "", section.snell_mode or "", section.snell_host or "false")
+      section.name, section.type, section.server or "", section.port or "", section.snell_psk or "", section.snell_mode or "", section.snell_host or "")
     elseif section.type == "trojan" then
       proxy_yaml = string.format("\n  - { name: %s, type: %s, server: %s, port: %s, password: %s, udp: %s, sni: %s, alpn: %s, skip-cert-verify: %s }", 
-      section.name, section.type, section.server or "", section.port or "", section.trojan_password or "", section.udp or "false", section.trojan_sni or "false",  section.trojan_alpn or "false", section.skip_cert_verify or "false")
+      section.name, section.type, section.server or "", section.port or "", section.trojan_password or "", section.udp or "false", section.trojan_sni or "", syaml.encode(section.trojan_alpn or {}), section.skip_cert_verify or "false")
     elseif section.type == "proxy_provider" then
       provider_yaml = "\n  " .. section.name .. ": " .. syaml.encode({
         type = section.provider_type,
@@ -791,14 +797,18 @@ _clash.gen_script_config = function(script_config)
   local s = io.open("/etc/config/" .. script_config)
   if not s then return "" end
   local line
-  local script = "\nscript:\n  code: |"
+  local script = ""
   for line in s:lines() do
     if line ~= "" and not line:match("^%s+$") then
       script = script .. "\n    " .. line
     end
   end
   s:close()
-  return script
+  if script == "" then
+    return script
+  else
+    return "\nscript:\n  code: |" .. script
+  end
 end
 
 _clash.gen_config = function(config_file)

@@ -280,9 +280,9 @@ end
                 // location.reload()
                 window.location.replace(location.href)
               else
-								alert("Import fail!")
+								alert("Import fail!\n" + xhr.statusText)
 								let s = document.getElementById('diglog_status')
-								s.innerHTML = "Import fail!"
+								s.innerHTML = "Import fail! " + xhr.statusText
             }
             xhr.send(formData)
           } catch (e) {

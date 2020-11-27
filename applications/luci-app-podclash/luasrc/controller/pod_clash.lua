@@ -68,6 +68,13 @@ function resolve_config()
 		elseif part == "all" then
 			local config_name = luci.http.formvalue("config_name")
 			if config_name then
+				local configs = luci.model.uci:get(global_config, "global", "configs")
+				for _, v in pairs(configs) do
+					if v == config_name then
+						luci.http.status(400, "duplicate config name")
+					  return
+					end
+				end
 				stat = pod_clash.new_config(config_name, config)
 			else
 				stat = false
