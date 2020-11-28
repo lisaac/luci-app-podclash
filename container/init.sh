@@ -27,6 +27,25 @@ function update_clash(){
   rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
 }
 
+function update_clash_premium(){
+  echo "$(date +%Y-%m-%d\ %T) Updating clash premium.."
+  mkdir -p ${CLASH_PATH}/rules
+  mkdir -p ${CLASH_PATH}/proxies
+  arch=$(uname -m)
+  clash_premium_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/clash/releases/tags/premium | grep '"name": "Premium ' | awk -F '[": ]' '{print $9}')"
+  if [ "$arch" = "x86_64" ]; then
+    clash_arch="amd64"
+  elif [ "$arch" = "aarch64" ]; then
+    clash_arch="armv8"
+  fi
+  clash_premium_url="https://github.com/Dreamacro/clash/releases/download/premium/clash-linux-${clash_arch}-${clash_premium_latest_ver}.gz"
+  rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
+  wget ${clash_premium_url} -O ${CLASH_PATH}/clash.gz && \
+  cd ${CLASH_PATH} && rm -fr clash &> /dev/null
+  gunzip clash.gz && chmod +x clash
+  rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
+}
+
 function update_geoip(){
   echo "$(date +%Y-%m-%d\ %T) Updating GEOIP.."
   geoip_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/maxmind-geoip/releases/latest | grep 'tag_name' | cut -d\" -f4)"
@@ -241,6 +260,7 @@ case $1 in
   update_yacd) update_yacd;;
   update_geoip) update_geoip;;
   update_bin) update_clash && update_subconverter;;
+  update_premium) update_clash_premium && update_geoip && update_subconverter && update_yacd;;
   stop) stop;;
   *) stop ; start;;
 esac
