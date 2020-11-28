@@ -34,7 +34,8 @@ end
 _clash.parse_general = function(general_config, general_table)
   local stat = true
   uci:set(general_config, "general", "mode", general_table["mode"] or "rule")
-  uci:set(general_config, "general", "allow_lan", general_table["allow-lan"] and "true" or "false")
+  -- uci:set(general_config, "general", "allow_lan", general_table["allow-lan"] and "true" or "false")
+  uci:set(general_config, "general", "allow_lan", "true")
   uci:set(general_config, "general", "port", general_table["port"] or "7890")
   uci:set(general_config, "general", "redir_port", general_table["redir-port"] or "7892")
   uci:set(general_config, "general", "socks_port", general_table["socks-port"] or "7891")
@@ -223,12 +224,10 @@ _clash.parse_rules = function(rules_config, rules_table)
   for _, v in ipairs(rules_table) do
     local rule_type, matcher, proxies, s_name
     rule_type, matcher, proxies = v:match("(.-),(.-),(.+)$")
-    if rule_type and matcher and proxies then 
+    if rule_type and rule_type ~= "MATCH" and matcher and proxies then 
       s_name = uci:section(rules_config, "rule", nil, {
         enable = "true",
         rule_type = rule_type,
-        -- don't forget the valid matcher
-        valid_matcher = matcher,
         matcher = matcher,
         proxies = proxies
       })
@@ -237,7 +236,6 @@ _clash.parse_rules = function(rules_config, rules_table)
       s_name = uci:section(rules_config, "rule", nil, {
         enable = "true",
         rule_type = rule_type,
-        valid_matcher = matcher,
         matcher = "null",
         proxies = proxies
       })
@@ -459,9 +457,13 @@ _clash.validate_rules = function(proxies_info_list, proxy_group_info_list, rule_
     local rule_type = uci:get(proxies_config, _section[".name"], "rule_type")
     local matcher = uci:get(proxies_config, _section[".name"], "matcher")
     local proxy = uci:get(proxies_config, _section[".name"], "proxies")
-    if not rule_type or rule_type == "" or not matcher or matcher == "" or not proxy and proxy == "" then
+    if not rule_type or rule_type == "" or not proxy or proxy == "" then
       uci:set(proxies_config, _section[".name"], "enable", "false")
-      message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due no TYPE or no MATCHER or no PROXY")
+      message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due no TYPE or no PROXY")
+      return
+    elseif rule_type ~= "MATCH" and (not matcher or matcher == "") then
+      uci:set(proxies_config, _section[".name"], "enable", "false")
+      message = luci.dispatcher.translate("Some Porxy(s) had been DISABLED, due no MATCH")
       return
     elseif rule_type == "RULE-SET" then
       if not rule_provider_info_list[matcher] or rule_provider_info_list[matcher]["enable"] ~= "true" then
@@ -687,7 +689,7 @@ _clash.gen_proxies_config = function(proxies_config)
         }
       })
     elseif section.type == "ssr" then
-      proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, cipher: %s, password: %s, obfs: %s, protocol: %s, obfs-param: %s, protocol-param: %s, udp: %s }',
+      proxy_yaml = string.format('\n  - { name: "%s", type: "%s", server: "%s", port: "%s", cipher: "%s", password: "%s", obfs: "%s", protocol: "%s", obfs-param: "%s", protocol-param: "%s", udp: %s }',
       section.name, section.type, section.server or "", section.port or "", section.ssr_cipher or "", section.ssr_password or "", section.ssr_obfs or "", section.ssr_protocol or "", section.ssr_obfs_param or "", section.ssr_protocol_param or "", section.udp or "")
     elseif section.type == "vmess" then
         local vmess = {
@@ -713,16 +715,16 @@ _clash.gen_proxies_config = function(proxies_config)
       end
       proxy_yaml = "\n  - " .. syaml.encode(vmess)
     elseif section.type == "http" then
-      proxy_yaml = string.format('\n  - { name: %s,    type: %s,    server: %s, port: %s, username: %s, password: %s, tls: %s, skip-cert-verify: %s }', 
+      proxy_yaml = string.format('\n  - { name: "%s", type: "%s", server: "%s", port: "%s", username: "%s", password: "%s", tls: %s, skip-cert-verify: %s }', 
       section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false")
     elseif section.type == "socks5" then
-      proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, username: %s, password: %s, tls: %s, skip-cert-verify: %s, udp: %s }',
+      proxy_yaml = string.format('\n  - { name: "%s", type: "%s", server: "%s", port: "%s", username: "%s", password: "%s", tls: %s, skip-cert-verify: %s, udp: %s }',
       section.name, section.type, section.server or "", section.port or "", section.username or "", section.password or "", section.tls or "false", section.skip_cert_verify or "false", section.udp or "false")
     elseif section.type == "snell" then
-      proxy_yaml = string.format('\n  - { name: %s, type: %s, server: %s, port: %s, psk: %s, obfs-opts: { mode: %s, host: %s }}',
+      proxy_yaml = string.format('\n  - { name: "%s", type: "%s", server: "%s", port: "%s", psk: "%s", obfs-opts: { mode: "%s", host: "%s" }}',
       section.name, section.type, section.server or "", section.port or "", section.snell_psk or "", section.snell_mode or "", section.snell_host or "")
     elseif section.type == "trojan" then
-      proxy_yaml = string.format("\n  - { name: %s, type: %s, server: %s, port: %s, password: %s, udp: %s, sni: %s, alpn: %s, skip-cert-verify: %s }", 
+      proxy_yaml = string.format('\n  - { name: "%s", type: "%s", server: "%s", port: "%s", password: "%s", udp: %s, sni: "%s", alpn: "%s", skip-cert-verify: %s }', 
       section.name, section.type, section.server or "", section.port or "", section.trojan_password or "", section.udp or "false", section.trojan_sni or "", syaml.encode(section.trojan_alpn or {}), section.skip_cert_verify or "false")
     elseif section.type == "proxy_provider" then
       provider_yaml = "\n  " .. section.name .. ": " .. syaml.encode({
@@ -782,11 +784,13 @@ _clash.gen_rules_config = function(rules_config)
   local rules_yaml = "\nrules:"
   uci:foreach(rules_config, "rule", function(section)
     if section.enable ~= "true" or not section.rule_type or not section.proxies then return end
-    local rule_yaml
+    local rule_yaml = ""
     if section.rule_type == "MATCH" then
       rule_yaml = string.format('\n  - %s,%s', section.rule_type, section.proxies)
+    elseif section.matcher then
+      rule_yaml = string.format('\n  - %s,%s,%s', section.rule_type, section.matcher, section.proxies)
     else
-      rule_yaml = string.format('\n  - %s,%s,%s', section.rule_type, section.valid_matcher or section.matcher, section.proxies)
+      return
     end
     rules_yaml = rules_yaml .. rule_yaml
   end)

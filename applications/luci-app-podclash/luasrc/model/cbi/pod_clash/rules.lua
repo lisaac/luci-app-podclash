@@ -271,34 +271,24 @@ m.on_before_save = function(self)
 						-- no rule provider or rule provider set this rule to disabled
 						m.uci:set(rules_config, v.section, "enable", "false")
 						m.message = translate("Some RULE(s) had been DISABLED, due disabled rule provider or no rule provider")
-					else
-						m.uci:set(rules_config, v.section, "valid_matcher", v.matcher)
 					end
 				elseif v.rule_type == "DST-PORT" or v.rule_type == "SRC-PORT" then
 					if not v.matcher:match("^%d+$") then
 						m.uci:set(rules_config, v.section, "enable", "false")
 						m.message = translate("Some RULE(s) had been DISABLED, due invalid PORT matcher")
-					else
-						m.uci:set(rules_config, v.section, "valid_matcher", v.matcher)
 					end
 				elseif v.rule_type == "SRC-IP-CIDR" or v.rule_type == "IP-CIDR" then
 					local ip = luci.ip.new(v.matcher)
 					if not ip or not ip:is4() then
 						m.uci:set(rules_config, v.section, "enable", "false")
 						m.message = translate("Some RULE(s) had been DISABLED, due invalid IP-CIDR matcher")
-					else
-						m.uci:set(rules_config, v.section, "valid_matcher", v.matcher)
 					end
 				elseif v.rule_type == "IP-CIDR6" then
 					local ip = luci.ip.new(v.matcher)
 					if not ip or not ip:is6() then
 						m.uci:set(rules_config, v.section, "enable", "false")
 						m.message = translate("Some RULE(s) had been DISABLED, due invalid IP-CIDR6 matcher")
-					else
-						m.uci:set(rules_config, v.section, "valid_matcher", v.matcher)
 					end
-				else
-					m.uci:set(rules_config, v.section, "valid_matcher", v.matcher)
 				end
 
 				-- if there is no proxies or disabled proxies, then disable the rule
