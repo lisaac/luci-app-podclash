@@ -95,6 +95,10 @@ end
 
 function import_rule_provider()
 	local filename = luci.http.formvalue("upload-filename")
+	if not filename then 
+		luci.http.status(400, "fail, no filename")
+		return
+	end
 	local fp
 	local file_path = "./rules/" .. filename
 	local tmp_file = "/tmp/conf.d/podclash/"  .. filename
@@ -153,6 +157,10 @@ end
 
 function import_proxy_provider()
 	local filename = luci.http.formvalue("upload-filename")
+	if not filename then 
+		luci.http.status(400, "fail, no filename")
+		return
+	end
 	local fp
 	local file_path = "./proxies/" .. filename
 	local tmp_file = "/tmp/conf.d/podclash/"  .. filename
