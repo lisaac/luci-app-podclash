@@ -675,17 +675,16 @@ _clash.gen_proxies_config = function(proxies_config)
         server = section.server,
         port = section.port,
         cipher = section.ss_cipher or "",
-        password = section.password or "",
+        password = section.ss_password or "",
         plugin = section.ss_plugin,
-        ["plugin-opts"] = {
+        ["plugin-opts"] = section.ss_plugin and {
           mode = section.ss_mode,
+          tls = section.ss_plugin == "v2ray-plugin" and (section.tls == "true" and true or false) or nil,
+          ["skip-cert-verify"] = section.ss_plugin == "v2ray-plugin" and (section.skip_cert_verify == "true" and true or false) or nil,
           host = section.ss_host,
-          tls = section.tls == "true" and true or false,
-          ["skip-cert-verify"] = section.skip_cert_verify == "true" and true or false,
-          host = section.ss_host,
-          path = section.ss_path,
-          mux = true,
-          headers = section.ss_header and { custom = section.ss_header } or nil
+          path = section.ss_plugin == "v2ray-plugin" and section.ss_path or nil,
+          mux = section.ss_plugin == "v2ray-plugin" and true or nil,
+          headers = section.ss_plugin == "v2ray-plugin" and section.ss_header and { custom = section.ss_header } or nil
         }
       })
     elseif section.type == "ssr" then
