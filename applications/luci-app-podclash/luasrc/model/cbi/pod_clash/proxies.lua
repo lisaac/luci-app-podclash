@@ -135,6 +135,8 @@ m.uci:foreach(proxies_config, "proxy_group",
 		if not t then return end
 		o_proxies_name:value(i.name, i.name)
 	end)
+	o_proxies_name:value("DIRECT", "DIRECT")
+	o_proxies_name:value("REJECT", "REJECT")
 
 -- clear duplicate proxyies_name
 o_proxies_name.validate = function(self, value, sid)
@@ -161,6 +163,7 @@ end
 
 o = s:option(Value, "url", translate("URL"))
 o.placeholder = "http://www.gstatic.com/generate_204"
+o:value("http://www.gstatic.com/generate_204", "http://www.gstatic.com/generate_204")
 
 o = s:option(Value, "interval", translate("Interval (s)"))
 o.placeholder = "300"
@@ -226,9 +229,11 @@ m.on_before_save = function(self)
 		function(_section)
 			local e = formvalue_info[_section[".name"]..".enable"] or m.uci:get(proxies_config, _section[".name"], "enable")
 			local n = m.uci:get(proxies_config, _section[".name"], "name")
-			proxy_group_info_list[n] = {
-				enable = e
-			}
+			if n and e then
+				proxy_group_info_list[n] = {
+					enable = e
+				}
+			end
 		end)
 
 	for k, v in pairs(formvalue_info) do
