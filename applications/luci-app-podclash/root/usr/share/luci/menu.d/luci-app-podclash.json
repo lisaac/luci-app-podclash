@@ -1,0 +1,13 @@
+{
+  "admin/services/podclash": {
+		"title": "Pod Clash",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "podclash/overview"
+		},
+		"depends": {
+			"acl": [ "luci-app-podclash" ]
+		}
+	}
+}

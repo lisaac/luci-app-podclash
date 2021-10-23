@@ -1,7 +1,0 @@
-<%+cbi/valueheader%>
-	<% if self:cfgvalue(section) ~= false then %>
-		<input class="cbi-button cbi-button-<%=self.inputstyle or "button" %>" type="button"<%= attr("name", cbid) .. attr("id", cbid) .. attr("value", self.inputtitle or self.title)%> onclick=view_config('<%=section%>') />
-	<% else %>
-		-
-	<% end %>
-<%+cbi/valuefooter%>
