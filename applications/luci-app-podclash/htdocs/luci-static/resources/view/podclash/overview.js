@@ -11,6 +11,12 @@
 'require podclash/js-yaml';
 'require podclash/podclash as podclash'
 
+document.querySelector('head').appendChild(E('link', {
+	'rel': 'stylesheet',
+	'type': 'text/css',
+	'href': L.resource('podclash/codemirror.css')
+}));
+
 return view.extend({
 	load: function () {
 		podclash.data.init({})
@@ -66,7 +72,7 @@ return view.extend({
 				this.data[section_id]['.name'] = section_id
 				this.data[section_id]['.type'] = sectiontype
 				this.data[section_id]['.anonymous'] = (sectionname == null)
-				this.data[section_id]['.index'] = index != null ? index : next_index		
+				this.data[section_id]['.index'] = index != null ? index : next_index
 			}
 
 			return section_id;
@@ -87,19 +93,19 @@ return view.extend({
 		s.renderSectionAdd = function (extra_class) {
 			if (!this.addremove)
 				return E([]);
-		
+
 			var createEl = E('div', { 'class': 'cbi-section-create' }),
 				btn_title = this.titleFn('addbtntitle');
-		
+
 			if (extra_class != null)
 				createEl.classList.add(extra_class);
-		
+
 			var nameEl = E('input', {
 				'type': 'text',
 				'class': 'cbi-section-create-name',
 				'disabled': this.map.readonly || null
 			});
-	
+
 			dom.append(createEl, [
 				E('div', {}, nameEl),
 				E('button', {
@@ -113,7 +119,7 @@ return view.extend({
 					'disabled': this.map.readonly || true
 				}, [_('Add')]),
 			]);
-	
+
 			if (this.map.readonly !== true) {
 				ui.addValidator(nameEl, 'uciname', true, function (v) {
 					var buttonAdd = createEl.querySelector('.cbi-section-create > .cbi-button-add');
@@ -133,12 +139,14 @@ return view.extend({
 
 		s.handleModalSave = function (modalMap, sid, ev) {
 			// save rules
-			const rules = document.querySelector('.rules_textarea').value
+			const rules = jsyaml.load(podclash.data.get(sid, '__rulesCodeMirror').getValue()).rules || null
+			const script = document.querySelector('.script_textarea').value
 			const hosts = document.querySelector('.dns_hosts_textarea').value
 			return this.super('handleModalSave', arguments)
 				.then(L.bind(function () { this.addedSection = null }, this))
 				.then(() => {
-					podclash.data.set(sid, 'scripts', rules && rules || undefined)
+					podclash.data.set(sid, 'rules', rules && rules || undefined)
+					podclash.data.set(sid, 'script', script && script || undefined)
 					podclash.data.set(sid, 'dns_hosts', hosts && hosts || undefined)
 				})
 				.then(() => {
@@ -188,7 +196,7 @@ return view.extend({
 			sConfig.tab('dns', _('DNS Settings'));
 			sConfig.tab('proxies', _('Proxies Settings'));
 			sConfig.tab('rules', _('Rules Settings'));
-			sConfig.tab('scripts', _('Scripts'));
+			sConfig.tab('script', _('Script'));
 			sConfig.showAll = false;
 
 			o = sConfig.taboption('general', form.ListValue, 'mode', _("Running Mode"))
@@ -202,7 +210,7 @@ return view.extend({
 			o.enabled = true
 			o.disabled = false
 			o.rmempty = false
-	
+
 			o = sConfig.taboption('general', form.Value, 'port', _("Port of HTTP"))
 			o.datatype = "port"
 			o.DATATYPE = "number"
@@ -678,12 +686,12 @@ return view.extend({
 			so.value("REJECT", "REJECT")
 			for (var x in podclash.data.get()) {
 				if (podclash.data.get(x, '.type') == 'proxies') {
-					if (podclash.data.get(x, 'type') == 'proxy-providers'){
+					if (podclash.data.get(x, 'type') == 'proxy-providers') {
 						so.value(podclash.data.get(x, '.name'), 'Provider: ' + podclash.data.get(x, '.name'))
-					}else{
+					} else {
 						so.value(podclash.data.get(x, '.name'), 'Proxy: ' + podclash.data.get(x, '.name'))
 					}
-				} else if (podclash.data.get(x, '.type') == 'proxy-groups'){
+				} else if (podclash.data.get(x, '.type') == 'proxy-groups') {
 					so.value(podclash.data.get(x, '.name'), 'Group: ' + podclash.data.get(x, '.name'))
 				}
 			}
@@ -768,70 +776,86 @@ return view.extend({
 			so.write = podclash.modalEnableFlagWrite
 
 			// rules
-			o = sConfig.taboption('rules', form.SectionValue, '_rules_' + sConfig.section, form.GridSection, '_rules_' + sConfig.section, _('Rules'))
-			ss = o.subsection
-			ss.parentsection = sConfig
-			ss.addremove = true
-			ss.anonymous = true
-			ss.sortable = true
-
-			ss.modaltitle = function (section_id) {
-				return _('Rule') + ': ' + this.parentsection.section || "New rule"
-			};
-
-			ss.renderMoreOptionsModal = podclash.renderMoreOptionsModal
-			ss.renderSectionAdd = podclash.renderSectionAdd
-			ss.renderRowActions = podclash.renderModalRowActions
-			ss.handleModalCancel = podclash.handleModalCancel
-			ss.handleModalSave = podclash.handleModalSave
-			ss.handleAddAtTop = podclash.handleAddAtTop
-			ss.handleClear = podclash.handleClear
-			ss.filter = podclash.modalFilter
-			ss.viewConfig = podclash.viewConfig
-
-			so = ss.option(form.ListValue, "type", _("Rule Type"))
-			so.default = "DOMAIN"
-			so.value("RULE-SET", _("RULE-SET"))
-			so.value("DOMAIN-SUFFIX", _("DOMAIN-SUFFIX"))
-			so.value("DOMAIN-KEYWORD", _("DOMAIN-KEYWORD"))
-			so.value("DOMAIN", _("DOMAIN"))
-			so.value("SRC-IP-CIDR", _("SRC-IP-CIDR"))
-			so.value("IP-CIDR", _("IP-CIDR"))
-			so.value("IP-CIDR6", _("IP-CIDR6"))
-			so.value("GEOIP", _("GEOIP"))
-			so.value("DST-PORT", _("DST-PORT"))
-			so.value("SRT-PORT", _("SRT-PORT"))
-			so.value("MATCH", _("MATCH"))
-
-			so = ss.option(form.Value, "matcher", _("Matcher"))
-			so = ss.option(form.Value, "policy", _("Proxies (Groups)"))
-			so.value("DIRECT", "DIRECT")
-			so.value("REJECT", "REJECT")
-			for (var x in podclash.data.get()) {
-				if (podclash.data.get(x, '.type') == 'proxies') {
-					if (podclash.data.get(x, 'type') == 'proxy-providers'){
-						so.value(podclash.data.get(x, '.name'), 'Provider: ' + podclash.data.get(x, '.name'))
-					}else{
-						so.value(podclash.data.get(x, '.name'), 'Proxy: ' + podclash.data.get(x, '.name'))
-					}
-				} else if (podclash.data.get(x, '.type') == 'proxy-groups'){
-					so.value(podclash.data.get(x, '.name'), 'Group: ' + podclash.data.get(x, '.name'))
-				}
-			}
-
-			so = ss.option(form.Flag, '_rules_enable', _('Enable'))
-			so.modalonly = false
-			so.rmempty = false
-			so.editable = true
-			so.cfgvalue = podclash.modalEnableFlagCFGValue
-			so.write = podclash.modalEnableFlagWrite
-
-			// scripts
-			o = sConfig.taboption('scripts', form.Value, '_scripts', _('Scripts'))
+			o = sConfig.taboption('rules', form.Value, '_rules', _('Rules'))
 			o.render = function (sid) {
 				return E([
-					E('h3', _('Scripts')),
-					E('p', {}, E('textarea', { 'class': 'rules_textarea', 'style': 'width:100%', 'rows': 25, }, podclash.data.get(this.section.section, 'scripts')))
+					E('h3', _('Rules')),
+					E('p', {}, 
+						E('div' ,{'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;'},
+							E('textarea', { 'id': 'rules_textarea', 'style': 'width:100%', 'rows': 25, }, '')
+						)
+					)
+				]);
+			}
+			o.write = function(){}
+			// o = sConfig.taboption('rules', form.SectionValue, '_rules_' + sConfig.section, form.GridSection, '_rules_' + sConfig.section, _('Rules'))
+			// ss = o.subsection
+			// ss.parentsection = sConfig
+			// ss.addremove = true
+			// ss.anonymous = true
+			// ss.sortable = true
+
+			// ss.modaltitle = function (section_id) {
+			// 	return _('Rule') + ': ' + this.parentsection.section || "New rule"
+			// };
+
+			// ss.renderMoreOptionsModal = podclash.renderMoreOptionsModal
+			// ss.renderSectionAdd = podclash.renderSectionAdd
+			// ss.renderRowActions = podclash.renderModalRowActions
+			// ss.handleModalCancel = podclash.handleModalCancel
+			// ss.handleModalSave = podclash.handleModalSave
+			// ss.handleAddAtTop = podclash.handleAddAtTop
+			// ss.handleClear = podclash.handleClear
+			// ss.filter = podclash.modalFilter
+			// ss.viewConfig = podclash.viewConfig
+
+			// so = ss.option(form.ListValue, "type", _("Rule Type"))
+			// so.default = "DOMAIN"
+			// so.value("RULE-SET", _("RULE-SET"))
+			// so.value("DOMAIN-SUFFIX", _("DOMAIN-SUFFIX"))
+			// so.value("DOMAIN-KEYWORD", _("DOMAIN-KEYWORD"))
+			// so.value("DOMAIN", _("DOMAIN"))
+			// so.value("SRC-IP-CIDR", _("SRC-IP-CIDR"))
+			// so.value("IP-CIDR", _("IP-CIDR"))
+			// so.value("IP-CIDR6", _("IP-CIDR6"))
+			// so.value("GEOIP", _("GEOIP"))
+			// so.value("DST-PORT", _("DST-PORT"))
+			// so.value("SRT-PORT", _("SRT-PORT"))
+			// so.value("MATCH", _("MATCH"))
+
+			// so = ss.option(form.Value, "matcher", _("Matcher"))
+			// so = ss.option(form.Value, "policy", _("Proxies (Groups)"))
+			// so.value("DIRECT", "DIRECT")
+			// so.value("REJECT", "REJECT")
+			// for (var x in podclash.data.get()) {
+			// 	if (podclash.data.get(x, '.type') == 'proxies') {
+			// 		if (podclash.data.get(x, 'type') == 'proxy-providers'){
+			// 			so.value(podclash.data.get(x, '.name'), 'Provider: ' + podclash.data.get(x, '.name'))
+			// 		}else{
+			// 			so.value(podclash.data.get(x, '.name'), 'Proxy: ' + podclash.data.get(x, '.name'))
+			// 		}
+			// 	} else if (podclash.data.get(x, '.type') == 'proxy-groups'){
+			// 		so.value(podclash.data.get(x, '.name'), 'Group: ' + podclash.data.get(x, '.name'))
+			// 	}
+			// }
+
+			// so = ss.option(form.Flag, '_rules_enable', _('Enable'))
+			// so.modalonly = false
+			// so.rmempty = false
+			// so.editable = true
+			// so.cfgvalue = podclash.modalEnableFlagCFGValue
+			// so.write = podclash.modalEnableFlagWrite
+
+
+
+			// script
+			o = sConfig.taboption('script', form.Value, '_script', _('Script'))
+			o.render = function (sid) {
+				return E([
+					E('h3', _('Script')),
+					E('p', {},
+						E('textarea', { 'class': 'script_textarea', 'style': 'width:100%', 'rows': 25, }, podclash.data.get(this.section.section, 'script'))
+					)
 				]);
 			}
 		}
