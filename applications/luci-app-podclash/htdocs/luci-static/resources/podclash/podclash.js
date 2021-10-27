@@ -8,77 +8,6 @@
 'require podclash/js-yaml';
 'require podclash/codemirror as CodeMirror'
 
-const PODCLASH = {
-	INFO: [
-		{ key: _("POD Name"), value: "-" },
-		{ key: _("POD IP"), value: "-" },
-		{ key: _("Running Mode"), value: "-" },
-		{ key: _("Proxies & Rules"), value: "-" },
-		{ key: _("Clash Ports"), value: "-" },
-		{ key: _("Clash Dashboard"), value: "-" },
-		{ key: _("External Controller"), value: "-" }
-	],
-	Configuration: [
-		{
-			".name": "default1",
-			'.type': 'config',
-			mode: "rule",
-			dnsMode: "fake-ip",
-			port: 7890,
-			proxies: ["proxy1"],
-			'proxy-groups': ["group1", "group2"],
-			'rule-providers': ['rulep1', 'rulep2'],
-			scripts: 'sssssss'
-		},
-		{
-			".name": "default2", mode: "rule", dnsMode: "fake-ip", port: 7890, proxy_nums: '200', rule_nums: '100',
-			proxies: ["proxy1"],
-			'proxy-groups': ["group1", "group2"],
-			'rule-providers': ['rulep1', 'rulep2'],
-			scripts: 'sssssss'
-		},
-		{
-			".name": "default3", mode: "rule", dnsMode: "fake-ip", port: 7890, proxy_nums: '200', rule_nums: '100',
-			proxies: ["proxy1", 'proxy2'],
-			'proxy-groups': [],
-			'rule-providers': ['rulep1', 'rulep2'],
-			scripts: 'sssss'
-		},
-		{
-			".name": "default4", mode: "rule", dnsMode: "fake-ip", port: 7890, proxy_nums: '200', rule_nums: '100',
-			proxies: ["proxy2"],
-			'proxy-groups': ["group1"],
-			'rule-providers': ['rulep1', 'rulep2'],
-			scripts: 'sssss'
-		}
-	],
-	proxies: [
-		{ ".name": "proxy1", type: 'ss', server: 'xyz.cn', port: 10000 },
-		{ ".name": "proxy2", type: 'ss', server: 'xyz.cn', port: 10000 },
-	],
-	'proxy-groups': [
-		{ ".name": "group1", type: 'auto', proxies: ["proxy1", "proxy2"], url: 'http://www.gstatic.com/generate_204', interval: 300, tolerance: 0 },
-		{ ".name": "group2", type: 'auto', proxies: ["proxy1"], url: 'http://www.gstatic.com/generate_204', interval: 300, tolerance: 0 },
-	],
-	'rule-providers': [
-		{ ".name": "rulep1", type: 'http', behavior: 'domain', path: '', url: 'http://www.gstatic.com/generate_204', interval: 300 },
-		{ ".name": "rulep2", type: 'file', behavior: 'domain', path: '', url: 'http://www.gstatic.com/generate_204', interval: 300 },
-		{ ".name": "rulep3", type: 'http', behavior: 'domain', path: '', url: 'http://www.gstatic.com/generate_204', interval: 300 }
-	],
-	_rules_default4: [
-		{ type: 'DOMAIN-SUFFIX', matcher: 'google1.com', policy: 'REJECT' },
-		{ type: 'DOMAIN-SUFFIX', matcher: 'google2.com', policy: 'REJECT' },
-		{ type: 'DOMAIN-SUFFIX', matcher: 'google3.com', policy: 'REJECT' }
-	],
-	Pod: {
-		pod_name: 'podclash',
-		image_name: 'lisaac/podclash:premium',
-		pod_config: '/clash/config.yaml',
-		pod_config_path: '/clash',
-		subconverter_base_url: 'http://127.0.0.1:25500/sub?',
-	}
-}
-
 const PODCLASH_DATA = function () {
 	let _data = {}
 	return {
@@ -133,7 +62,6 @@ const default_config = {
 	"dns_listen": '0.0.0.0:53',
 	"dns_enhanced-mode": 'redir',
 	"dns_default-nameserver": ['223.5.5.5', '119.29.29.29'],
-
 }
 
 const template = {
@@ -168,9 +96,11 @@ const template = {
 				"geoip-code": null,
 				"ipcidr": null,
 				"domain": null,
-			}
+			},
+			"hosts": null
 		},
-		"scripts": null
+		"rules": null,
+		"script": null
 	},
 	"tun": {
 		"enable": false,
@@ -730,31 +660,31 @@ const renderMoreOptionsModal = function (section_id, ev) {
 		}, this))
 		.then((node) => {
 			const rules_textarea = document.getElementById("rules_textarea")
-			if (rules_textarea)
+			const script_textarea = document.getElementById("script_textarea")
+			const dns_hosts = document.getElementById("dns_hosts_textarea")
+			if (rules_textarea) {
 				genRulesCodeMirror(rules_textarea, section_id)
+			}
+			if (script_textarea) {
+				const scriptCodeMirror = genCodeMirror(script_textarea, 'python')
+				const script_yaml = jsyaml.dump({ script: PODCLASH_DATA.get(section_id, 'script') || { code: '\n' } }, { flowLevel: -1 })
+				scriptCodeMirror.setOption("value", script_yaml);
+				PODCLASH_DATA.set(section_id, "__scriptCodeMirror", scriptCodeMirror)
+			}
+			if (dns_hosts) {
+				const dnsCodeMirror = genCodeMirror(dns_hosts, 'yaml')
+				const dns_hosts_yaml = jsyaml.dump({ hosts: PODCLASH_DATA.get(section_id, 'dns_hosts') || {} }, { flowLevel: -1 })
+				dnsCodeMirror.setOption("value", dns_hosts_yaml);
+				PODCLASH_DATA.set(section_id, "__dnsCodeMirror", dnsCodeMirror)
+			}
 			return node
 		})
 		.catch(L.error);
 }
 
-const genRulesCodeMirror = function (el, section_id) {
-
-	const hints = [
-		['DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN', 'SRC-IP-CIDR', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'DST-PORT', 'SRT-PORT', 'MATCH'],
-		[],
-		['DIRECT','REJECT']
-	]
-
-	for (var x in PODCLASH_DATA.get()) {
-		if (PODCLASH_DATA.get(x, '.type') == 'proxies') {
-			hints[2].push({text: PODCLASH_DATA.get(x, '.name'), displayText:'fdfdf'})
-		} else if (PODCLASH_DATA.get(x, '.type') == 'proxy-groups') {
-			hints[2].unshift(PODCLASH_DATA.get(x, '.name'))
-		}
-	}
-
-	const rulesCodeMirror = CodeMirror.CodeMirror.fromTextArea(el, {
-		mode: "yaml",
+const genCodeMirror = function (el, lang, customHint) {
+	const CM = CodeMirror.CodeMirror.fromTextArea(el, {
+		mode: lang,
 		theme: "idea",
 		// keyMap: "sublime",
 		lineNumbers: true,
@@ -769,20 +699,48 @@ const genRulesCodeMirror = function (el, section_id) {
 		autoCloseBrackets: true,
 		styleActiveLine: true,
 		hintOptions: {
-			hint: synonyms
+			hint: customHint
 		},
 	});
-	const rule_yaml = jsyaml.dump({ rules: PODCLASH_DATA.get(section_id, 'rules') || ['MATCH,DIRECT'] }, { flowLevel: -1 })
-	rulesCodeMirror.setOption("value", rule_yaml);
+	CM.on("keyup", function (cm, event) {
+		if (!cm.state.completionActive    /*Enables keyboard navigation in autocomplete list*/
+			&& ((event.keyCode > 64 && event.keyCode < 122) || event.keyCode == 188 || event.keyCode == 32) // only when a letter key is pressed
+		) {
+			CodeMirror.CodeMirror.commands.autocomplete(cm, null, { completeSingle: false });
+		}
+	});
+	return CM
+}
 
-	function synonyms(cm, option) {
+const genViewCodeMirror = function (el, section_id) {
+	const viewCodeMirror = genCodeMirror(el, 'yaml')
+	viewCodeMirror.setSize('100%', '100%')
+	PODCLASH_DATA.set(section_id, "__viewCodeMirror", viewCodeMirror)
+}
+
+const genRulesCodeMirror = function (el, section_id) {
+	const hints = [
+		['DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN', 'SRC-IP-CIDR', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'DST-PORT', 'SRT-PORT', 'MATCH'],
+		[],
+		['DIRECT', 'REJECT']
+	]
+	for (var x in PODCLASH_DATA.get()) {
+		if (PODCLASH_DATA.get(x, '.type') == 'proxies') {
+			hints[2].push({ text: PODCLASH_DATA.get(x, '.name'), displayText: 'fdfdf' })
+		} else if (PODCLASH_DATA.get(x, '.type') == 'proxy-groups') {
+			hints[2].unshift(PODCLASH_DATA.get(x, '.name'))
+		}
+	}
+
+	const rule_yaml = jsyaml.dump({ rules: PODCLASH_DATA.get(section_id, 'rules') || ['MATCH,DIRECT'] }, { flowLevel: -1 })
+	const customHint = function (cm, option) {
 		return new Promise(function (accept) {
 			setTimeout(function () {
 				const list = []
 				var cursor = cm.getCursor(), line = cm.getLine(cursor.line)
 				var start = cursor.ch, end = cursor.ch
 				// match ^ - 
-				if (line.match(/^\s+\-\s/)){
+				if (line.match(/^\s+\-\s/)) {
 					while (start && /\w/.test(line.charAt(start - 1)))
 						--start
 					while (end < line.length && /\w/.test(line.charAt(end)))
@@ -801,17 +759,13 @@ const genRulesCodeMirror = function (el, section_id) {
 					list: list,
 					from: CodeMirror.CodeMirror.Pos(cursor.line, start),
 					to: CodeMirror.CodeMirror.Pos(cursor.line, end)
-				});
+				})
 			}, 10)
 		})
 	}
-	rulesCodeMirror.on("keyup", function (cm, event) {
-		if (!cm.state.completionActive    /*Enables keyboard navigation in autocomplete list*/
-			&& ((event.keyCode > 64 && event.keyCode < 122) || event.keyCode == 188 || event.keyCode == 32) // only when a letter key is pressed
-			){
-			CodeMirror.CodeMirror.commands.autocomplete(cm, null, { completeSingle: false });
-		}
-	});
+
+	const rulesCodeMirror = genCodeMirror(el, 'yaml', customHint)
+	rulesCodeMirror.setOption("value", rule_yaml);
 
 	PODCLASH_DATA.set(section_id, '__rulesCodeMirror', rulesCodeMirror)
 }
@@ -878,11 +832,11 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 			part_config = { [podclash_data[sid]['.name']]: part_config }
 			break;
 		// case 'rules':
-		// 	if (part_config.type && part_config.type.toUpperCase() === 'MATCH')
-		// 		part_config = part_config.type + ',' + part_config.policy
-		// 	else
-		// 		part_config = part_config.type + ',' + part_config.matcher + ',' + part_config.policy
-		// 	break;
+		// if (part_config.type && part_config.type.toUpperCase() === 'MATCH')
+		// 	part_config = part_config.type + ',' + part_config.policy
+		// else
+		// 	part_config = part_config.type + ',' + part_config.matcher + ',' + part_config.policy
+		// break;
 		case 'Configuration':
 			let sections
 			if (needSectionType == configSectionType) {
@@ -980,8 +934,6 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	if (PODCLASH_DATA.get(sname, '.type') === 'Configuration' && needSectionType != 'Configuration') {
 		needSectionType = 'Parts'
 	}
-
-	// console.log(jsonConfig, sname)
 
 	switch (needSectionType) {
 		case 'proxies':
@@ -1092,8 +1044,10 @@ const viewConfig = function (section_id, ev) {
 	section_id = section_id ? section_id : this.parentsection.section
 	ui.showModal(_('View: ' + this.sectiontype), [
 		E('p', {}, [E('em', { 'style': 'white-space:pre' }, section_id)]),
-		E('textarea', { 'class': 'view_edit_textarea', 'style': 'width:100%', 'rows': 28, },
-			jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, this.sectiontype), { flowLevel: 2 })
+		E('div', { 'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;' },
+			E('textarea', { 'class': 'view_edit_textarea', 'style': 'width:100%', 'rows': 28, },
+				jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, this.sectiontype), { flowLevel: 2 })
+			)
 		),
 		E('div', { 'class': 'right' }, [
 			E('button', {
@@ -1108,7 +1062,8 @@ const viewConfig = function (section_id, ev) {
 			E('button', {
 				'class': 'cbi-button cbi-button-positive important',
 				'click': (() => {
-					resolveConfig(jsyaml.load(document.querySelector('.view_edit_textarea').value), section_id, this.sectiontype)
+					const yaml = PODCLASH_DATA.get(section_id, '__viewCodeMirror').getValue()
+					resolveConfig(jsyaml.load(yaml), section_id, this.sectiontype)
 					if (this.sectiontype != "Configuration")
 						this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section)
 					else
@@ -1117,6 +1072,9 @@ const viewConfig = function (section_id, ev) {
 			}, [_('Save')])
 		])
 	], 'cbi-modal')
+	const view_edit_textarea = document.querySelector('.view_edit_textarea')
+	if (view_edit_textarea)
+		genViewCodeMirror(view_edit_textarea, section_id)
 }
 
 const applyConfig = function (section_id) {
@@ -1148,6 +1106,7 @@ return baseclass.extend({
 	viewConfig: viewConfig,
 	applyConfig: applyConfig,
 	removeConfig: removeConfig,
+	isNullObj: isNullObj,
 
 	proxy_types: proxy_types,
 	ciphers: ciphers,

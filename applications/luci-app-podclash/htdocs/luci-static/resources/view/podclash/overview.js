@@ -139,9 +139,24 @@ return view.extend({
 
 		s.handleModalSave = function (modalMap, sid, ev) {
 			// save rules
-			const rules = jsyaml.load(podclash.data.get(sid, '__rulesCodeMirror').getValue()).rules || null
-			const script = document.querySelector('.script_textarea').value
-			const hosts = document.querySelector('.dns_hosts_textarea').value
+			let rules, script, hosts
+			try {
+				rules = jsyaml.load(podclash.data.get(sid, '__rulesCodeMirror').getValue()).rules || null
+				script = jsyaml.load(podclash.data.get(sid, '__scriptCodeMirror').getValue()).script || null
+				hosts = jsyaml.load(podclash.data.get(sid, '__dnsCodeMirror').getValue()).hosts || null
+			} catch (error) {
+
+			}
+
+			// if script.code == empty clear it
+			if (script && script.code && script.code.match(/^\s+$/)) {
+				script = null
+			}
+
+			if (podclash.isNullObj(hosts)) {
+				hosts = null
+			}
+
 			return this.super('handleModalSave', arguments)
 				.then(L.bind(function () { this.addedSection = null }, this))
 				.then(() => {
@@ -297,9 +312,14 @@ return view.extend({
 			// o.depends('dns_use-hosts', true)
 			o.renderWidget = function (sid) {
 				return E('div', { 'class': 'cbi-value' }, [
-					E('div', { 'class': 'cbi-value-text' }, E('textarea', { 'class': 'dns_hosts_textarea', 'style': 'width:60%', 'rows': 15, }, podclash.data.get(sid, 'dns_hosts')))
+					E('div', { 'class': 'cbi-value-text' },
+						E('div', { 'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;' },
+							E('textarea', { 'id': 'dns_hosts_textarea', 'style': 'width:60%', 'rows': 15, }, podclash.data.get(sid, 'dns_hosts'))
+						)
+					)
 				]);
 			}
+			o.write = () => { }
 
 			// ------------
 			o = sConfig.taboption('proxies', form.Button, "_showAll", _("Show ALL"))
@@ -780,14 +800,14 @@ return view.extend({
 			o.render = function (sid) {
 				return E([
 					E('h3', _('Rules')),
-					E('p', {}, 
-						E('div' ,{'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;'},
+					E('p', {},
+						E('div', { 'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;' },
 							E('textarea', { 'id': 'rules_textarea', 'style': 'width:100%', 'rows': 25, }, '')
 						)
 					)
 				]);
 			}
-			o.write = function(){}
+			o.write = function () { }
 			// o = sConfig.taboption('rules', form.SectionValue, '_rules_' + sConfig.section, form.GridSection, '_rules_' + sConfig.section, _('Rules'))
 			// ss = o.subsection
 			// ss.parentsection = sConfig
@@ -854,10 +874,13 @@ return view.extend({
 				return E([
 					E('h3', _('Script')),
 					E('p', {},
-						E('textarea', { 'class': 'script_textarea', 'style': 'width:100%', 'rows': 25, }, podclash.data.get(this.section.section, 'script'))
+						E('div', { 'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;' },
+							E('textarea', { 'id': 'script_textarea', 'style': 'width:100%', 'rows': 25, }, podclash.data.get(this.section.section, 'script'))
+						)
 					)
 				]);
 			}
+			o.write = () => { }
 		}
 
 		// global pod setting
