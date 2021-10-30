@@ -4,9 +4,13 @@
 'require dom'
 'require ui'
 'require fs';
+'require rpc';
+'require request';
 'require form';
 'require podclash/js-yaml';
 'require podclash/codemirror as CodeMirror'
+
+const SERVER_SIDE_CONFIG_PATH = '/etc/config/podclash'
 
 const PODCLASH_DATA = function () {
 	let _data = {}
@@ -40,6 +44,34 @@ const PODCLASH_DATA = function () {
 				return obj[final]
 			})(_data, [].slice.call(arguments))
 		},
+		//clear codemirror objects, prefix with __
+		clear: function () {
+			const dat = this.get.apply(this, [].slice.call(arguments))
+			const clr = function (obj) {
+				for (var k in obj) {
+					if (k.match(/^__.+/)) {
+						delete obj[k]
+					} else if (typeof obj[k] === 'object') {
+						clr(obj[k])
+					}
+				}
+			}
+			clr(dat)
+		},
+		upload: function () {
+			this.clear()
+			const fmdata = new FormData()
+			// clear codemirror objects
+			const jsonfile = new File([JSON.stringify(_data)], "podclash", { type: "text/plan" })
+			fmdata.append('sessionid', rpc.getSessionID())
+			fmdata.append('filename', SERVER_SIDE_CONFIG_PATH)
+			fmdata.append('filedata', jsonfile)
+			request.post(L.env.cgi_base + '/cgi-upload', fmdata, {
+				timeout: 0
+			}).then(res => {
+			}).catch(e => {
+			})
+		}
 	}
 }()
 
@@ -99,6 +131,10 @@ const template = {
 			},
 			"hosts": null
 		},
+		"proxies": null,
+		"proxy-providers": null,
+		"proxy-groups": null,
+		"rule-providers": null,
 		"rules": null,
 		"script": null
 	},
@@ -485,7 +521,8 @@ const handleModalCancel = function (modalMap, ev) {
 
 const handleModalSave = function (modalMap, sid, ev) {
 	const configName = this.parentsection.section
-	let configSectionType = this.sectiontype.match(/^_rules_.+/) && 'rules' || this.sectiontype
+	// let configSectionType = this.sectiontype.match(/^_rules_.+/) && 'rules' || this.sectiontype
+	const configSectionType = this.sectiontype
 	return modalMap.save(null, true)
 		.then(L.bind(this.map.load, this.map))
 		.then(L.bind(this.map.reset, this.map))
@@ -555,7 +592,8 @@ const modalEnableFlagCFGValue = function (section_id) {
 	const podclash_data = this.map.data.data
 	const configName = this.section.parentsection.section
 	// configSectionType: proxiex, proxy-goups, rule-providers, rules.
-	const configSectionType = this.section.sectiontype.match(/^_rules_.+/) && 'rules' || this.section.sectiontype
+	// const configSectionType = this.section.sectiontype.match(/^_rules_.+/) && 'rules' || this.section.sectiontype
+	const configSectionType = this.section.sectiontype
 	return (podclash_data[configName][configSectionType] && (podclash_data[configName][configSectionType].indexOf(section_id) >= 0)) ? true : false
 }
 
@@ -563,7 +601,8 @@ const modalEnableFlagWrite = function (section_id, value) {
 	const podclash_data = this.map.data.data
 	const configName = this.section.parentsection.section
 	// configSectionType: proxiex, proxy-goups, rule-providers, rules.
-	const configSectionType = this.section.sectiontype.match(/^_rules_.+/) && 'rules' || this.section.sectiontype
+	// const configSectionType = this.section.sectiontype.match(/^_rules_.+/) && 'rules' || this.section.sectiontype
+	const configSectionType = this.section.sectiontype
 	if (!podclash_data[configName][configSectionType])
 		podclash_data[configName][configSectionType] = []
 	const i = podclash_data[configName][configSectionType].indexOf(section_id)
@@ -582,7 +621,8 @@ const modalFilter = function (section_id) {
 	const podclash_data = this.map.data.data
 	const configName = this.parentsection.section
 	// configSectionType: proxiex, proxy-goups, rule-providers, rules.
-	const configSectionType = this.sectiontype.match(/^_rules_.+/) && 'rules' || this.sectiontype
+	// const configSectionType = this.sectiontype.match(/^_rules_.+/) && 'rules' || this.sectiontype
+	const configSectionType = this.sectiontype
 	if (this.parentsection.showAll) return true
 	return podclash_data[configName][configSectionType] ? podclash_data[configName][configSectionType].reduce((y, x) => {
 		if (x == section_id) {
@@ -593,14 +633,38 @@ const modalFilter = function (section_id) {
 }
 
 const renderMoreOptionsModal = function (section_id, ev) {
+	if (this.parentsection) {
+		// view config will open new modal dialog, so we need to save the current modal dialog first
+		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, undefined, true)
+	}
 	var parent = this.map,
 		title = parent.title,
 		name = null,
 		m = new form.JSONMap({}, null, null),
-		s = m.section(form.NamedSection, section_id, this.sectiontype);
+		s = m.section(form.NamedSection, section_id, this.sectiontype)
 	m.parent = parent
 	m.data = parent.data
 	m.readonly = parent.readonly
+	m.save = function (cb, silent) {
+		this.checkDepends()
+		return this.parse()
+			.then(cb)
+			.then(this.data.save.bind(this.data))
+			.then(this.load.bind(this))
+			.catch(function (e) {
+				if (!silent) {
+					ui.showModal(_('Save error'), [
+						E('p', {}, [_('An error occurred while saving the form:')]),
+						E('p', {}, [E('em', { 'style': 'white-space:pre' }, [e.message])]),
+						E('div', { 'class': 'right' }, [
+							E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, [_('Dismiss')])
+						])
+					]);
+				}
+				return Promise.reject(e);
+			})
+		// .then(this.renderContents.bind(this));
+	}
 
 	s.tabs = this.tabs;
 	s.tab_names = this.tab_names;
@@ -658,28 +722,34 @@ const renderMoreOptionsModal = function (section_id, ev) {
 				])
 			], 'cbi-modal');
 		}, this))
-		.then((node) => {
-			const rules_textarea = document.getElementById("rules_textarea")
-			const script_textarea = document.getElementById("script_textarea")
-			const dns_hosts = document.getElementById("dns_hosts_textarea")
-			if (rules_textarea) {
-				genRulesCodeMirror(rules_textarea, section_id)
-			}
-			if (script_textarea) {
-				const scriptCodeMirror = genCodeMirror(script_textarea, 'python')
-				const script_yaml = jsyaml.dump({ script: PODCLASH_DATA.get(section_id, 'script') || { code: '\n' } }, { flowLevel: -1 })
-				scriptCodeMirror.setOption("value", script_yaml);
-				PODCLASH_DATA.set(section_id, "__scriptCodeMirror", scriptCodeMirror)
-			}
-			if (dns_hosts) {
-				const dnsCodeMirror = genCodeMirror(dns_hosts, 'yaml')
-				const dns_hosts_yaml = jsyaml.dump({ hosts: PODCLASH_DATA.get(section_id, 'dns_hosts') || {} }, { flowLevel: -1 })
-				dnsCodeMirror.setOption("value", dns_hosts_yaml);
-				PODCLASH_DATA.set(section_id, "__dnsCodeMirror", dnsCodeMirror)
-			}
-			return node
+		.then(() => {
+			// create and render codemirror instance
+			renderCodeMirrors(section_id)
 		})
 		.catch(L.error);
+}
+
+const renderCodeMirrors = function (section_id) {
+	setTimeout(() => {
+		const rules_textarea = document.getElementById("rules_textarea")
+		const script_textarea = document.getElementById("script_textarea")
+		const dns_hosts = document.getElementById("dns_hosts_textarea")
+		if (rules_textarea) {
+			genRulesCodeMirror(rules_textarea, section_id)
+		}
+		if (script_textarea) {
+			const scriptCodeMirror = genCodeMirror(script_textarea, 'python')
+			const script_yaml = jsyaml.dump({ script: PODCLASH_DATA.get(section_id, 'script') || { code: '\n' } }, { flowLevel: -1 })
+			scriptCodeMirror.setOption("value", script_yaml);
+			PODCLASH_DATA.set(section_id, "__scriptCodeMirror", scriptCodeMirror)
+		}
+		if (dns_hosts) {
+			const dnsCodeMirror = genCodeMirror(dns_hosts, 'yaml')
+			const dns_hosts_yaml = jsyaml.dump({ hosts: PODCLASH_DATA.get(section_id, 'dns_hosts') || {} }, { flowLevel: -1 })
+			dnsCodeMirror.setOption("value", dns_hosts_yaml);
+			PODCLASH_DATA.set(section_id, "__dnsCodeMirror", dnsCodeMirror)
+		}
+	}, 0)
 }
 
 const genCodeMirror = function (el, lang, customHint) {
@@ -689,8 +759,9 @@ const genCodeMirror = function (el, lang, customHint) {
 		// keyMap: "sublime",
 		lineNumbers: true,
 		smartIndent: true,
-		indentUnit: 4,
-		indentWithTabs: true,
+		tabSize: 2,
+		indentUnit: 2,
+		// indentWithTabs: true,
 		lineWrapping: true,
 		gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter", "CodeMirror-lint-markers"],
 		foldGutter: true,
@@ -700,7 +771,27 @@ const genCodeMirror = function (el, lang, customHint) {
 		styleActiveLine: true,
 		hintOptions: {
 			hint: customHint
+		}
+	});
+	CM.setOption("extraKeys", {
+		"Tab": function (cm) {
+			if (cm.somethingSelected()) {
+				var sel = CM.getSelection("\n");
+				// Indent only if there are multiple lines selected, or if the selection spans a full line
+				if (sel.length > 0 && (sel.indexOf("\n") > -1 || sel.length === cm.getLine(cm.getCursor().line).length)) {
+					cm.indentSelection("add");
+					return;
+				}
+			}
+
+			if (cm.options.indentWithTabs)
+				cm.execCommand("insertTab");
+			else
+				cm.execCommand("insertSoftTab");
 		},
+		"Shift-Tab": function (cm) {
+			cm.indentSelection("subtract");
+		}
 	});
 	CM.on("keyup", function (cm, event) {
 		if (!cm.state.completionActive    /*Enables keyboard navigation in autocomplete list*/
@@ -773,8 +864,9 @@ const genRulesCodeMirror = function (el, section_id) {
 // podclash_data:podclash data, sid: section id, section: yaml section(proxies, proxy-groups...)
 const genConfig = function (podclash_data, sid, needSectionType) {
 	if (!podclash_data || !sid || !needSectionType || !podclash_data[sid] || !podclash_data[sid]['.type']) return
-	const configSectionType = (podclash_data[sid]['.type'].match(/^_rules_.+/)) && 'rules' || podclash_data[sid]['.type']
-	needSectionType = needSectionType.match(/^_rules_.+/) && 'rules' || needSectionType
+	// const configSectionType = (podclash_data[sid]['.type'].match(/^_rules_.+/)) && 'rules' || podclash_data[sid]['.type']
+	const configSectionType = podclash_data[sid]['.type']
+	// needSectionType = needSectionType.match(/^_rules_.+/) && 'rules' || needSectionType
 	let part_config, k
 
 	if (configSectionType != needSectionType) {
@@ -878,10 +970,9 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 		return part_config
 	}
 }
-
 //jsonConfig: json, sname: section name(config name), section: yaml section (proxiex, proxy-groups, rule-providers..)
-const resolveConfig = function (jsonConfig, sname, needSectionType) {
-	needSectionType = needSectionType.match(/^_rules_.+/) && 'rules' || needSectionType
+const resolveConfig = async function (jsonConfig, sname, needSectionType, overwrite) {
+	// needSectionType = needSectionType.match(/^_rules_.+/) && 'rules' || needSectionType
 
 	//const unflatten = function (data) {
 	// 	"use strict";
@@ -930,123 +1021,151 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	}
 
 	let k
-
 	if (PODCLASH_DATA.get(sname, '.type') === 'Configuration' && needSectionType != 'Configuration') {
-		needSectionType = 'Parts'
-	}
-
-	switch (needSectionType) {
-		case 'proxies':
-			// has type means not proxy-providers
-			if (jsonConfig['type']) {
-				jsonConfig = flatten(jsonConfig, jsonConfig['type'])
-			} else {
-				jsonConfig = flatten(jsonConfig[sname], jsonConfig[sname]['type'])
+		['proxies', 'proxy-groups'].forEach(sec => {
+			if (typeof jsonConfig[sec] != 'object') return
+			// clear meta data
+			PODCLASH_DATA.set(sname, sec, [])
+			jsonConfig[sec].forEach(proxy => {
+				if (typeof proxy.name != 'string') return
+				resolveConfig(proxy, proxy.name, sec)
+					.then(() => {
+						PODCLASH_DATA.get(sname, sec).push(proxy.name)
+					})
+			})
+		})
+		const parts = ['proxy-providers', 'rule-providers']
+		for (k in parts) {
+			const sec = parts[k]
+			if (typeof jsonConfig[sec] == 'object') {
+				// clear meta data
+				PODCLASH_DATA.set(sname, sec, [])
+				for (k in jsonConfig[sec]) {
+					resolveConfig(jsonConfig[sec][k], k, sec)
+						.then(() => {
+							PODCLASH_DATA.get(sname, sec).push(k)
+						})
+				}
 			}
-			break;
-		case 'proxy-providers':
-			jsonConfig = flatten(jsonConfig, jsonConfig['type'])
-			break;
-		case 'proxy-groups':
-		case 'rule-providers':
-			// jsonConfig = flatten(jsonConfig)
-			break;
-		// case 'rules':
-		// 	const _rules = jsonConfig.split(',')
-
-		// 	if (_rules[0] && _rules[0].toUpperCase() == 'MATCH') {
-		// 		jsonConfig = {
-		// 			type: _rules[0],
-		// 			policy: _rules[1]
-		// 		}
-		// 	} else if (_rules.length >= 3) {
-		// 		jsonConfig = {
-		// 			type: _rules[0],
-		// 			matcher: _rules[1],
-		// 			policy: _rules[2]
-		// 		}
+		}
+		// const _sec = 'rules'
+		// if (typeof jsonConfig[_sec] == 'object') {
+		// 	for (k in jsonConfig[_sec]) {
+		// 		resolveConfig(jsonConfig[_sec][k], '_rules_' + sname + k, _sec)
 		// 	}
-		// 	break;
-		case 'Configuration':
-			['proxies', 'proxy-groups'].forEach(sec => {
-				const names = []
-				if (typeof jsonConfig[sec] != 'object') return
-				jsonConfig[sec].forEach(proxy => {
-					if (typeof proxy.name != 'string') return
-					names.push(proxy.name)
-					resolveConfig(proxy, proxy.name, sec)
-				})
-				jsonConfig[sec] = names
-			})
-			const sections = ['proxy-providers', 'rule-providers']
-			for (k in sections) {
-				const sec = sections[k]
-				const names = []
-				if (typeof jsonConfig[sec] == 'object') {
-					for (k in jsonConfig[sec]) {
-						names.push(k)
-						resolveConfig(jsonConfig[sec][k], k, sec)
-					}
-					jsonConfig[sec] = names
+		// }
+		// do NOT resolve the total, since it's useless
+		jsonConfig = null
+	} else {
+		switch (needSectionType) {
+			case 'proxies':
+				// has type means not proxy-providers
+				if (jsonConfig['type']) {
+					jsonConfig = flatten(jsonConfig, jsonConfig['type'])
+				} else {
+					jsonConfig = flatten(jsonConfig[sname], jsonConfig[sname]['type'])
 				}
-			}
-			// const sec = 'rules'
-			// const names = []
-			// if (typeof jsonConfig[sec] == 'object') {
-			// 	for (k in jsonConfig[sec]) {
-			// 		names.push('_rules_' + sname + k)
-			// 		resolveConfig(jsonConfig[sec][k], '_rules_' + sname + k, sec)
+				break;
+			case 'proxy-providers':
+				jsonConfig = flatten(jsonConfig, jsonConfig['type'])
+				break;
+			case 'proxy-groups':
+			case 'rule-providers':
+				// jsonConfig = flatten(jsonConfig)
+				break;
+			// case 'rules':
+			// 	const _rules = jsonConfig.split(',')
+
+			// 	if (_rules[0] && _rules[0].toUpperCase() == 'MATCH') {
+			// 		jsonConfig = {
+			// 			type: _rules[0],
+			// 			policy: _rules[1]
+			// 		}
+			// 	} else if (_rules.length >= 3) {
+			// 		jsonConfig = {
+			// 			type: _rules[0],
+			// 			matcher: _rules[1],
+			// 			policy: _rules[2]
+			// 		}
 			// 	}
-			// 	jsonConfig[sec] = names
-			// }
-			jsonConfig = flatten(jsonConfig)
-			break;
-		case 'Parts':
-			['proxies', 'proxy-groups'].forEach(sec => {
-				if (typeof jsonConfig[sec] != 'object') return
-				jsonConfig[sec].forEach(proxy => {
-					if (typeof proxy.name != 'string') return
-					resolveConfig(proxy, proxy.name, sec)
+			// 	break;
+			case 'Configuration':
+				['proxies', 'proxy-groups'].forEach(sec => {
+					const names = []
+					if (typeof jsonConfig[sec] != 'object') return
+					jsonConfig[sec].forEach(proxy => {
+						if (typeof proxy.name != 'string') return
+						resolveConfig(proxy, proxy.name, sec)
+							.then(() => {
+								names.push(proxy.name)
+							})
+					})
+					jsonConfig[sec] = names
 				})
-			})
-			const parts = ['proxy-providers', 'rule-providers']
-			for (k in parts) {
-				const sec = parts[k]
-				if (typeof jsonConfig[sec] == 'object') {
-					for (k in jsonConfig[sec]) {
-						resolveConfig(jsonConfig[sec][k], k, sec)
+				const sections = ['proxy-providers', 'rule-providers']
+				for (k in sections) {
+					const sec = sections[k]
+					const names = []
+					if (typeof jsonConfig[sec] == 'object') {
+						for (k in jsonConfig[sec]) {
+							resolveConfig(jsonConfig[sec][k], k, sec).then((
+								names.push(k)
+							))
+						}
+						jsonConfig[sec] = names
 					}
 				}
-			}
-			const _sec = 'rules'
-			if (typeof jsonConfig[_sec] == 'object') {
-				for (k in jsonConfig[_sec]) {
-					resolveConfig(jsonConfig[_sec][k], '_rules_' + sname + k, _sec)
-				}
-			}
-			jsonConfig = null
-			break;
+				// const sec = 'rules'
+				// const names = []
+				// if (typeof jsonConfig[sec] == 'object') {
+				// 	for (k in jsonConfig[sec]) {
+				// 		resolveConfig(jsonConfig[sec][k], '_rules_' + sname + k, sec)
+				// .then(()=>{
+				// 			names.push('_rules_' + sname + k)
+				// })
+				// 	}
+				// 	jsonConfig[sec] = names
+				// }
+				jsonConfig = flatten(jsonConfig)
+				break
+		}
 	}
-	if (typeof jsonConfig === 'object') {
+
+	if (jsonConfig != null && typeof jsonConfig === 'object') {
 		jsonConfig['.type'] = (needSectionType == 'proxy-providers') && 'proxies' || ((needSectionType == 'rules') && sname.split(/\d+/)[0] || needSectionType)
 		jsonConfig['.name'] = sname
 		jsonConfig['.anonymous'] = false
-		PODCLASH_DATA.set(sname, jsonConfig)
-		// console.log(jsonConfig && { [sname]: jsonConfig })
+		if (PODCLASH_DATA.get(sname) && needSectionType != 'Configuration') {
+			// clear codemirror object first
+			PODCLASH_DATA.clear()
+			if (JSON.stringify(PODCLASH_DATA.get(sname)) != JSON.stringify(jsonConfig)) {
+				if (confirm(needSectionType + ': ' + sname + _(' is repeat with existing, do you wan\'t to overwrite??'))) {
+					PODCLASH_DATA.set(sname, jsonConfig)
+				}
+			} else {
+				PODCLASH_DATA.set(sname, jsonConfig)
+			}
+		}
+		return Promise.resolve()
 	} else {
-		console.log(jsonConfig)
-		console.log(needSectionType)
-		console.log(sname)
+		// console.log(jsonConfig)
+		// console.log(needSectionType)
+		// console.log(sname)
 	}
+	return Promise.reject()
 }
 
 const viewConfig = function (section_id, ev) {
-	section_id = section_id ? section_id : this.parentsection.section
+	if (this.parentsection) {
+		// view config will open new modal dialog, so we need to save the current modal dialog first
+		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, undefined, true)
+	}
+	const sid = section_id ? section_id : this.parentsection.section
 	ui.showModal(_('View: ' + this.sectiontype), [
-		E('p', {}, [E('em', { 'style': 'white-space:pre' }, section_id)]),
+		E('p', {}, [E('em', { 'style': 'white-space:pre' }, sid)]),
 		E('div', { 'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;' },
 			E('textarea', { 'class': 'view_edit_textarea', 'style': 'width:100%', 'rows': 28, },
-				jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, this.sectiontype), { flowLevel: 2 })
+				jsyaml.dump(genConfig(PODCLASH_DATA.get(), sid, this.sectiontype), { flowLevel: 2 })
 			)
 		),
 		E('div', { 'class': 'right' }, [
@@ -1058,23 +1177,33 @@ const viewConfig = function (section_id, ev) {
 					else
 						ui.hideModal()
 				})
-			}, [_('Dismiss')]),
+			}, [_('Dismiss')]), ' ',
 			E('button', {
 				'class': 'cbi-button cbi-button-positive important',
 				'click': (() => {
-					const yaml = PODCLASH_DATA.get(section_id, '__viewCodeMirror').getValue()
-					resolveConfig(jsyaml.load(yaml), section_id, this.sectiontype)
-					if (this.sectiontype != "Configuration")
-						this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section)
-					else
-						ui.hideModal()
+					const yaml = PODCLASH_DATA.get(sid, '__viewCodeMirror').getValue()
+					try {
+						resolveConfig(jsyaml.load(yaml), sid, this.sectiontype)
+						if (this.sectiontype != "Configuration") {
+							this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section)
+						}
+						else {
+							// need to upload to server
+							PODCLASH_DATA.clear()
+							this.handleModalSave(this.map, section_id)
+							ui.hideModal()
+						}
+					} catch (error) {
+						alert(error)
+					}
+
 				})
 			}, [_('Save')])
 		])
 	], 'cbi-modal')
 	const view_edit_textarea = document.querySelector('.view_edit_textarea')
 	if (view_edit_textarea)
-		genViewCodeMirror(view_edit_textarea, section_id)
+		genViewCodeMirror(view_edit_textarea, sid)
 }
 
 const applyConfig = function (section_id) {
@@ -1082,10 +1211,13 @@ const applyConfig = function (section_id) {
 }
 
 const removeConfig = function (section_id) {
-	const config_name = this.uciconfig || this.map.config;
+	if (confirm(_('!!! DELETE Configuration !!!\n??? Are you sure to DELETE the Configuration: ') + section_id + ' ???')) {
+		const config_name = this.uciconfig || this.map.config;
 
-	this.map.data.remove(config_name, section_id);
-	return this.map.save(null, true);
+		this.map.data.remove(config_name, section_id);
+		this.map.save(this.map, section_id)
+			.then(PODCLASH_DATA.upload())
+	}
 }
 
 return baseclass.extend({
@@ -1107,10 +1239,14 @@ return baseclass.extend({
 	applyConfig: applyConfig,
 	removeConfig: removeConfig,
 	isNullObj: isNullObj,
+	genRulesCodeMirror: genRulesCodeMirror,
+	genCodeMirror: genCodeMirror,
+	renderCodeMirrors: renderCodeMirrors,
 
 	proxy_types: proxy_types,
 	ciphers: ciphers,
 	ssr_obfses: ssr_obfses,
 	ssr_protocols: ssr_protocols,
-	default_config: default_config
+	default_config: default_config,
+	SERVER_SIDE_CONFIG_PATH: SERVER_SIDE_CONFIG_PATH
 })

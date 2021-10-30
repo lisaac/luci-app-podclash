@@ -19,10 +19,11 @@ document.querySelector('head').appendChild(E('link', {
 
 return view.extend({
 	load: function () {
-		podclash.data.init({})
-		return podclash.data.get()
+		return fs.read_direct(podclash.SERVER_SIDE_CONFIG_PATH, 'json')
+			.catch(() => { return {} })
 	},
 	render: function (_data) {
+		podclash.data.init(_data)
 		var m, s, o, ss, so
 		m = new form.JSONMap({}, _('POD Clash'));
 		m.tabbed = true
@@ -46,7 +47,8 @@ return view.extend({
 					}
 
 					return Promise.reject(e);
-				}).then(this.renderContents.bind(this));
+				})
+				.then(this.renderContents.bind(this));
 		}
 
 		m.data.add = function (config, sectiontype, sectionname, index) {
@@ -118,35 +120,43 @@ return view.extend({
 					}),
 					'disabled': this.map.readonly || true
 				}, [_('Add')]),
+				E('button', {
+					'class': 'cbi-button cbi-button-add',
+					'title': _('Add'),
+					'click': ui.createHandlerFn(this, function (ev) {
+						if (nameEl.classList.contains('cbi-input-invalid'))
+							return;
+						return this.handleAdd(ev, nameEl.value);
+					}),
+					'disabled': this.map.readonly || true
+				}, [_('From URL')]),
 			]);
 
 			if (this.map.readonly !== true) {
 				ui.addValidator(nameEl, 'uciname', true, function (v) {
 					var buttonAdd = createEl.querySelector('.cbi-section-create > .cbi-button-add');
 					// check for duplicate names
-					if (v !== '' && !podclash.data.get(v) && !v.match(/\d+/)) {
+					if (v !== '' && !podclash.data.get(v)) {
 						buttonAdd.disabled = null;
 						return true;
 					}
 					else {
 						buttonAdd.disabled = true;
-						return _('Expecting: %s').format(_('non-empty value') + ' | ' + _('non-exist value') + ' | ' + _('no numbers'));
+						return _('Expecting: %s').format(_('non-empty value') + ' | ' + _('non-exist value'));
 					}
 				}, 'blur', 'keyup');
 			}
 			return createEl;
 		}
 
-		s.handleModalSave = function (modalMap, sid, ev) {
+		s.handleModalSave = function (modalMap, sid, ev, noUpload) {
 			// save rules
 			let rules, script, hosts
 			try {
+				hosts = jsyaml.load(podclash.data.get(sid, '__dnsCodeMirror').getValue()).hosts || null
 				rules = jsyaml.load(podclash.data.get(sid, '__rulesCodeMirror').getValue()).rules || null
 				script = jsyaml.load(podclash.data.get(sid, '__scriptCodeMirror').getValue()).script || null
-				hosts = jsyaml.load(podclash.data.get(sid, '__dnsCodeMirror').getValue()).hosts || null
-			} catch (error) {
-
-			}
+			} catch (error) { }
 
 			// if script.code == empty clear it
 			if (script && script.code && script.code.match(/^\s+$/)) {
@@ -156,18 +166,25 @@ return view.extend({
 			if (podclash.isNullObj(hosts)) {
 				hosts = null
 			}
-
-			return this.super('handleModalSave', arguments)
+			return modalMap.save(null, true)
+				.then(L.bind(this.map.load, this.map))
+				.then(L.bind(this.map.reset, this.map))
 				.then(L.bind(function () { this.addedSection = null }, this))
 				.then(() => {
-					podclash.data.set(sid, 'rules', rules && rules || undefined)
-					podclash.data.set(sid, 'script', script && script || undefined)
-					podclash.data.set(sid, 'dns_hosts', hosts && hosts || undefined)
+					if (hosts)
+						podclash.data.set(sid, 'dns_hosts', hosts)
+					if (rules)
+						podclash.data.set(sid, 'rules', rules)
+					if (script)
+						podclash.data.set(sid, 'script', script)
 				})
 				.then(() => {
-					// TODO:
+					// TODO: upload to luci server
+					if (!noUpload) podclash.data.upload()
 					console.log(podclash.data.get())
 				})
+				// .then(ui.hideModal)
+				.catch(function () { });
 		}
 		s.renderRowActions = function (section_id) {
 			var tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
@@ -197,10 +214,24 @@ return view.extend({
 
 		// o = s.option(form.DummyValue, "name", _("Config Name"))
 		o = s.option(form.DummyValue, "mode", _("Mode"))
-		o = s.option(form.DummyValue, "enhanced-mode", _("DNS Mode"))
-		o = s.option(form.DummyValue, "port", _("Ports"))
-		o = s.option(form.DummyValue, "proxy_nums", _("Proxies"))
-		o = s.option(form.DummyValue, "rule_nums", _("Rules"))
+		o = s.option(form.DummyValue, "dns_enhanced-mode", _("DNS Mode"))
+		o = s.option(form.DummyValue, "__port", _("Ports"))
+		o.cfgvalue = function (section_id) {
+			return (podclash.data.get(section_id, 'port')
+				&& ('http: ' + String(podclash.data.get(section_id, 'port'))) || '')
+				+ (podclash.data.get(section_id, 'socks-port')
+					&& (' socks: ' + String(podclash.data.get(section_id, 'socks-port'))) || '')
+				+ (podclash.data.get(section_id, 'mixed-port')
+					&& (' mixed: ' + String(podclash.data.get(section_id, 'mixed-port'))) || '')
+		}
+		o = s.option(form.DummyValue, "__proxy_nums", _("Proxies"))
+		o.cfgvalue = function (section_id) {
+			return podclash.data.get(section_id, 'proxies') && String(podclash.data.get(section_id, 'proxies').length) || '0'
+		}
+		o = s.option(form.DummyValue, "__rule_nums", _("Rules"))
+		o.cfgvalue = function (section_id) {
+			return podclash.data.get(section_id, 'rules') && String(podclash.data.get(section_id, 'rules').length) || '0'
+		}
 
 		s.modaltitle = function (section_id) {
 			return _('Configuration') + ': ' + section_id || "New Config"
@@ -323,18 +354,22 @@ return view.extend({
 
 			// ------------
 			o = sConfig.taboption('proxies', form.Button, "_showAll", _("Show ALL"))
-			o.onclick = L.bind(function (ev) {
-				sConfig.map.save()
+			o.onclick = function (ev, section_id) {
+				sConfig.map.save(this.map, section_id)
+					.then(this.map.renderContents.bind(this.map))
+					.then(podclash.renderCodeMirrors(section_id))
 					.then(sConfig.showAll = !sConfig.showAll)
-			}, this);
+			}
 			o.inputstyle = 'add'
 			o.render = podclash.showAllRender
 
 			o = sConfig.taboption('rules', form.Button, "_showAll", _("Show ALL"))
-			o.onclick = L.bind(function (ev) {
-				sConfig.map.save()
+			o.onclick = function (ev, section_id) {
+				sConfig.map.save(this.map, section_id)
+					.then(this.map.renderContents.bind(this.map))
+					.then(podclash.renderCodeMirrors(section_id))
 					.then(sConfig.showAll = !sConfig.showAll)
-			}, this);
+			}
 			o.inputstyle = 'add'
 			o.render = podclash.showAllRender
 
@@ -366,6 +401,9 @@ return view.extend({
 			so = ss.option(form.Value, 'port', _('Port'))
 			so.datatype = "port"
 			so.DATATYPE = "number"
+			so.cfgvalue = function(section_id) {
+				return podclash.data.get(section_id, "port") && String(podclash.data.get(section_id, "port"))
+			}
 			so.depends({ type: 'proxy-providers', "!reverse": true })
 			so = ss.option(form.Flag, '_proxies_enable', _('Enable'))
 			so.modalonly = false
