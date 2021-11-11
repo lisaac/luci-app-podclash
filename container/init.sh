@@ -255,7 +255,7 @@ function stop(){
 }
 
 case $1 in
-  daemon) update_clash && update_geoip && start && tail -f /var/log/clash.log;;
+  daemon) start && tail -f /var/log/clash.log;;
   update) update_clash && update_geoip && update_subconverter && update_yacd;;
   update_yacd) update_yacd;;
   update_geoip) update_geoip;;

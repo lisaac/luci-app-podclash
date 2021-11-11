@@ -1,4 +1,3 @@
-
 'use strict';
 'require ui';
 'require view';
@@ -9,7 +8,7 @@
 'require fs';
 'require form';
 'require podclash/js-yaml';
-'require podclash/podclash as podclash'
+'require podclash/podclash as podclash';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet',
@@ -23,7 +22,21 @@ return view.extend({
 			.catch(() => { return {} })
 	},
 	render: function (_data) {
+		setTimeout(() => {
+			podclash.getClashInfo()
+		}, 0);
 		podclash.data.init(_data)
+
+		_data["_INFO_00pod_name"] = {key: _('POD Name'), value:'-', ".type": '_INFO', ".name": '_INFO_00pod_name'}
+		_data["_INFO_01pod_ip"] = {key: _('POD IP'), value:'-', ".type": '_INFO', ".name": '_INFO_01pod_ip'}
+		_data["_INFO_10clash_version"] = {key: _('Clash Version'), value:'-', ".type": '_INFO', ".name": '_INFO_10clash_version'}
+		_data["_INFO_11clash_running_mode"] = {key: _('Running Mode'), value:'-', ".type": '_INFO', ".name": '_INFO_11clash_running_mode'}
+		_data["_INFO_12clash_proxies_rules"] = {key: _('Proxies & Rules'), value:'Proxies: - | Rules: -', ".type": '_INFO', ".name": '_INFO_12clash_proxies_rules'}
+		_data["_INFO_13clash_ports"] = {key: _('Clash Ports'), value:'-', ".type": '_INFO', ".name": '_INFO_13clash_ports'}
+		_data["_INFO_22clash_dashboard"] = {key: _('Clash Dashboard'), value:'-', ".type": '_INFO', ".name": '_INFO_22clash_dashboard'}
+		_data["_INFO_21external_controller"] = {key: _('External Controller'), value:'-', ".type": '_INFO', ".name": '_INFO_21external_controller'}
+		_data["_logs"] = {}
+
 		var m, s, o, ss, so
 		m = new form.JSONMap({}, _('POD Clash'));
 		m.tabbed = true
@@ -81,7 +94,7 @@ return view.extend({
 		}
 
 		// info
-		s = m.section(form.TableSection, 'INFO', _("Info"), null)
+		s = m.section(form.TableSection, '_INFO', _("Info"), null)
 		s.anonymous = true
 		o = s.option(form.DummyValue, 'key', _("Info"))
 		o = s.option(form.DummyValue, 'value', null)
@@ -149,7 +162,7 @@ return view.extend({
 			return createEl;
 		}
 
-		s.handleModalSave = function (modalMap, sid, ev, noUpload) {
+		s.handleModalSave = function (modalMap, sid, noUpload, needClose, ev) {
 			// save rules
 			let rules, script, hosts
 			try {
@@ -181,6 +194,10 @@ return view.extend({
 				.then(() => {
 					// TODO: upload to luci server
 					if (!noUpload) podclash.data.upload()
+					if (needClose) ui.hideModal()
+					setTimeout(() => {
+						podclash.getClashInfo()
+					}, 0);
 					console.log(podclash.data.get())
 				})
 				// .then(ui.hideModal)
@@ -226,7 +243,9 @@ return view.extend({
 		}
 		o = s.option(form.DummyValue, "__proxy_nums", _("Proxies"))
 		o.cfgvalue = function (section_id) {
-			return podclash.data.get(section_id, 'proxies') && String(podclash.data.get(section_id, 'proxies').length) || '0'
+			let num = (podclash.data.get(section_id, 'proxies') && podclash.data.get(section_id, 'proxies').length || 0) + 
+			(podclash.data.get(section_id, 'proxy-groups') && podclash.data.get(section_id, 'proxy-groups').length || 0)
+			return String(num)
 		}
 		o = s.option(form.DummyValue, "__rule_nums", _("Rules"))
 		o.cfgvalue = function (section_id) {
@@ -261,19 +280,19 @@ return view.extend({
 			o.datatype = "port"
 			o.DATATYPE = "number"
 			o.placeholder = 7890
-			o.depends("allow-lan", true)
+			// o.depends("allow-lan", true)
 
 			o = sConfig.taboption('general', form.Value, 'socks-port', _("Port of Socks"))
 			o.DATATYPE = "number"
 			o.datatype = "port"
 			o.placeholder = 7891
-			o.depends("allow-lan", true)
+			// o.depends("allow-lan", true)
 
 			o = sConfig.taboption('general', form.Value, 'mixed-port', _("Port of HTTP&SOCKS5"))
 			o.DATATYPE = "number"
 			o.datatype = "port"
 			o.placeholder = 7894
-			o.depends("allow-lan", true)
+			// o.depends("allow-lan", true)
 
 			// o = sConfig.taboption('general', form.Value, 'redir-port', _("Redirect TCP and TProxy UDP"))
 			// o.DATATYPE = "number"
@@ -930,22 +949,34 @@ return view.extend({
 		// o = s.option(form.Value, "pod_config_path", _("Config Path in Container"))
 		// o = s.option(form.Value, "subconverter_base_url", _("Subconverter Base URL"))
 
+		// logs
+		s = m.section(form.NamedSection, '_logs', _("Logs"), null)
+		o = s.option(form.Value, '_log', _('Logs'))
+		o.render = async function(sid){
+			setTimeout(() => {
+				podclash.getPodLogs()
+			}, 0);
+			return E([], [
+				E('h3', {}, [ _('Logs') ]),
+				E('div', { 'id': 'content_clashlog', 
+				'style': 'font-size:12px; width:100%'
+			 }, [
+					E('textarea', {
+						'id': 'clashlog',
+						'style': 'font-size:12px; width:100%',
+						'readonly': 'readonly',
+						'wrap': 'off',
+						'rows': 10
+					}, '' )
+				])
+			]);
+		}
+
 		return m.render()
 	},
 
 	handleSaveApply: null,
 	handleReset: null,
 	handleSave: null
-	// handleSave: function (x) {
 
-	// 	var tasks = [];
-	// 	document.getElementById('maincontent')
-	// 		.querySelectorAll('.cbi-map').forEach(function (map) {
-	// 			tasks.push(DOM.callClassMethod(map, 'save'));
-	// 		});
-
-	// 	Promise.all(tasks).then(() => { })
-
-	// 	console.log(podclash.data.get())
-	// }
 })

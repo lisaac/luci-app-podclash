@@ -1,16 +1,21 @@
 'use strict';
-"require baseclass"
+'require baseclass';
 'require uci';
-'require dom'
-'require ui'
+'require dom';
+'require ui';
 'require fs';
 'require rpc';
 'require request';
 'require form';
 'require podclash/js-yaml';
-'require podclash/codemirror as CodeMirror'
+'require podclash/codemirror as CodeMirror';
+'require podclash/tar as tar';
 
 const SERVER_SIDE_CONFIG_PATH = '/etc/config/podclash'
+const POD_NAME = 'podclash'
+const CLASH_PORT = '9090'
+const CLASH_SECRET = 'podclash'
+const CREATE_POD_CLI = 'docker run -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 -p 7894:7894 --restart unless-stopped --name podclash lisaac/podclash'
 
 const PODCLASH_DATA = function () {
 	let _data = {}
@@ -100,8 +105,8 @@ const template = {
 	"Configuration": {
 		"port": null,
 		"socks-port": null,
-		"redir-port": null,
-		"tproxy-port": null,
+		"redir-port": 7892,
+		"tproxy-port": 7893,
 		"mixed-port": null,
 		"allow-lan": null,
 		"bind-address": '*',
@@ -634,8 +639,8 @@ const modalFilter = function (section_id) {
 
 const renderMoreOptionsModal = function (section_id, ev) {
 	if (this.parentsection) {
-		// view config will open new modal dialog, so we need to save the current modal dialog first
-		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, undefined, true)
+		// open new sub modal dialog, so we need to save the current modal dialog first
+		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, true)
 	}
 	var parent = this.map,
 		title = parent.title,
@@ -715,10 +720,15 @@ const renderMoreOptionsModal = function (section_id, ev) {
 						'click': ui.createHandlerFn(this, 'handleModalCancel', m, section_id)
 					}, [_('Dismiss')]), ' ',
 					E('button', {
-						'class': 'cbi-button cbi-button-positive important',
+						'class': 'cbi-button cbi-button-positive',
 						'click': ui.createHandlerFn(this, 'handleModalSave', m, section_id),
 						'disabled': m.readonly || null
-					}, [_('Save')])
+					}, [_('Save')]), ' ',
+					E('button', {
+						'class': 'cbi-button cbi-button-positive important',
+						'click': ui.createHandlerFn(this, 'handleModalSave', m, section_id, undefined, true),
+						'disabled': m.readonly || null
+					}, [_('Save&Close')])
 				])
 			], 'cbi-modal');
 		}, this))
@@ -941,6 +951,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 				part_config[sec] = []
 				for (k in podclash_data[sid][sec]) {
 					const json_cfg = genConfig(podclash_data, podclash_data[sid][sec][k], __sec)
+					if (json_cfg == null || !json_cfg) return
 					if (podclash_data[podclash_data[sid][sec][k]] && podclash_data[podclash_data[sid][sec][k]]['type'] == 'proxy-providers' || sec == 'rule-providers') {
 						const _sec = (sec == 'rule-providers') && 'rule-providers' || 'proxy-providers'
 						if (part_config[_sec] && part_config[_sec].constructor === Object) {
@@ -971,8 +982,13 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 	}
 }
 //jsonConfig: json, sname: section name(config name), section: yaml section (proxiex, proxy-groups, rule-providers..)
-const resolveConfig = async function (jsonConfig, sname, needSectionType, overwrite) {
-	// needSectionType = needSectionType.match(/^_rules_.+/) && 'rules' || needSectionType
+const resolveConfig = function (jsonConfig, sname, needSectionType) {
+	let rv, isSectionofConfig;
+	if (PODCLASH_DATA.get(sname, '.type') === 'Configuration' && needSectionType != 'Configuration') {
+		// only resolve muti-proxies/proxy-groups/rule-providers section, not the global config...
+		isSectionofConfig = true
+		needSectionType = 'Configuration'
+	}
 
 	//const unflatten = function (data) {
 	// 	"use strict";
@@ -1019,152 +1035,105 @@ const resolveConfig = async function (jsonConfig, sname, needSectionType, overwr
 		recurse(cfg, p);
 		return result;
 	}
-
-	let k
-	if (PODCLASH_DATA.get(sname, '.type') === 'Configuration' && needSectionType != 'Configuration') {
-		['proxies', 'proxy-groups'].forEach(sec => {
-			if (typeof jsonConfig[sec] != 'object') return
-			// clear meta data
-			PODCLASH_DATA.set(sname, sec, [])
-			jsonConfig[sec].forEach(proxy => {
-				if (typeof proxy.name != 'string') return
-				resolveConfig(proxy, proxy.name, sec)
-					.then(() => {
-						PODCLASH_DATA.get(sname, sec).push(proxy.name)
-					})
-			})
-		})
-		const parts = ['proxy-providers', 'rule-providers']
-		for (k in parts) {
-			const sec = parts[k]
-			if (typeof jsonConfig[sec] == 'object') {
-				// clear meta data
-				PODCLASH_DATA.set(sname, sec, [])
-				for (k in jsonConfig[sec]) {
-					resolveConfig(jsonConfig[sec][k], k, sec)
-						.then(() => {
-							PODCLASH_DATA.get(sname, sec).push(k)
-						})
-				}
+	switch (needSectionType) {
+		case 'proxies':
+			// has type means not proxy-providers
+			if (jsonConfig['type']) {
+				// proxy
+				rv = flatten(jsonConfig, jsonConfig['type'])
+			} else {
+				// proxy-provider
+				rv = flatten(jsonConfig[sname], jsonConfig[sname]['type'])
 			}
-		}
-		// const _sec = 'rules'
-		// if (typeof jsonConfig[_sec] == 'object') {
-		// 	for (k in jsonConfig[_sec]) {
-		// 		resolveConfig(jsonConfig[_sec][k], '_rules_' + sname + k, _sec)
-		// 	}
-		// }
-		// do NOT resolve the total, since it's useless
-		jsonConfig = null
-	} else {
-		switch (needSectionType) {
-			case 'proxies':
-				// has type means not proxy-providers
-				if (jsonConfig['type']) {
-					jsonConfig = flatten(jsonConfig, jsonConfig['type'])
-				} else {
-					jsonConfig = flatten(jsonConfig[sname], jsonConfig[sname]['type'])
-				}
-				break;
-			case 'proxy-providers':
-				jsonConfig = flatten(jsonConfig, jsonConfig['type'])
-				break;
-			case 'proxy-groups':
-			case 'rule-providers':
-				// jsonConfig = flatten(jsonConfig)
-				break;
-			// case 'rules':
-			// 	const _rules = jsonConfig.split(',')
+			break;
+		case 'proxy-providers':
+			if (jsonConfig['type']) {
+				rv = flatten(jsonConfig, jsonConfig['type'])
+			} else {
+				rv = flatten(Object.values(jsonConfig)[0], Object.values(jsonConfig)[0]['type'])
+			}
+			break;
+		case 'proxy-groups':
+		case 'rule-providers':
+			if (jsonConfig['type']) {
+				rv = jsonConfig
+			} else {
+				rv = Object.values(jsonConfig)[0]
+			}
+			break;
+		case 'Configuration':
+			if (isSectionofConfig) {
+				rv = { [sname]: {} };
+			} else {
+				rv = { [sname]: flatten(jsonConfig) };
+				rv[sname]['.type'] = 'Configuration';
+				rv[sname]['.name'] = sname;
+				rv[sname]['.anonymous'] = false;
+			};
 
-			// 	if (_rules[0] && _rules[0].toUpperCase() == 'MATCH') {
-			// 		jsonConfig = {
-			// 			type: _rules[0],
-			// 			policy: _rules[1]
-			// 		}
-			// 	} else if (_rules.length >= 3) {
-			// 		jsonConfig = {
-			// 			type: _rules[0],
-			// 			matcher: _rules[1],
-			// 			policy: _rules[2]
-			// 		}
-			// 	}
-			// 	break;
-			case 'Configuration':
-				['proxies', 'proxy-groups'].forEach(sec => {
-					const names = []
-					if (typeof jsonConfig[sec] != 'object') return
-					jsonConfig[sec].forEach(proxy => {
-						if (typeof proxy.name != 'string') return
-						resolveConfig(proxy, proxy.name, sec)
-							.then(() => {
-								names.push(proxy.name)
-							})
-					})
-					jsonConfig[sec] = names
+			['proxies', 'proxy-groups'].forEach(sec => {
+				if (typeof jsonConfig[sec] != 'object') return
+				// clear meta data
+				rv[sname][sec] = [];
+				jsonConfig[sec].forEach(proxy => {
+					if (!proxy || proxy == null || typeof proxy.name != 'string') return
+					resolveConfig(proxy, proxy.name, sec)
+						.then(resolved_obj => {
+							rv[proxy.name] = resolved_obj
+							rv[sname][sec].push(proxy.name)
+						})
 				})
-				const sections = ['proxy-providers', 'rule-providers']
-				for (k in sections) {
-					const sec = sections[k]
-					const names = []
-					if (typeof jsonConfig[sec] == 'object') {
-						for (k in jsonConfig[sec]) {
-							resolveConfig(jsonConfig[sec][k], k, sec).then((
-								names.push(k)
-							))
-						}
-						jsonConfig[sec] = names
+			});
+			['proxy-providers', 'rule-providers'].forEach(sec => {
+				if (typeof jsonConfig[sec] != 'object') return
+				const _sec = (sec === 'proxy-providers') && 'proxies' || sec
+				rv[sname][_sec] = [];
+				for (var k in jsonConfig[sec]) {
+					if (jsonConfig[sec][k] && jsonConfig[sec][k] != null) {
+						resolveConfig(jsonConfig[sec][k], k, sec)
+							.then(resolved_obj => {
+								rv[k] = resolved_obj
+								rv[sname][_sec].push(k)
+							})
 					}
 				}
-				// const sec = 'rules'
-				// const names = []
-				// if (typeof jsonConfig[sec] == 'object') {
-				// 	for (k in jsonConfig[sec]) {
-				// 		resolveConfig(jsonConfig[sec][k], '_rules_' + sname + k, sec)
-				// .then(()=>{
-				// 			names.push('_rules_' + sname + k)
-				// })
-				// 	}
-				// 	jsonConfig[sec] = names
-				// }
-				jsonConfig = flatten(jsonConfig)
-				break
-		}
+			})
+			break;
 	}
-
-	if (jsonConfig != null && typeof jsonConfig === 'object') {
-		jsonConfig['.type'] = (needSectionType == 'proxy-providers') && 'proxies' || ((needSectionType == 'rules') && sname.split(/\d+/)[0] || needSectionType)
-		jsonConfig['.name'] = sname
-		jsonConfig['.anonymous'] = false
-		if (PODCLASH_DATA.get(sname) && needSectionType != 'Configuration') {
-			// clear codemirror object first
-			PODCLASH_DATA.clear()
-			if (JSON.stringify(PODCLASH_DATA.get(sname)) != JSON.stringify(jsonConfig)) {
-				if (confirm(needSectionType + ': ' + sname + _(' is repeat with existing, do you wan\'t to overwrite??'))) {
-					PODCLASH_DATA.set(sname, jsonConfig)
-				}
-			} else {
-				PODCLASH_DATA.set(sname, jsonConfig)
-			}
+	if (rv != null && typeof rv === 'object') {
+		// add meta data for proxy/proxy-group/provider sections
+		if (needSectionType != 'Configuration' && !isSectionofConfig) {
+			rv['.type'] = (needSectionType == 'proxy-providers') && 'proxies' || ((needSectionType == 'rules') && sname.split(/\d+/)[0] || needSectionType)
+			rv['.name'] = sname
+			rv['.anonymous'] = false
 		}
-		return Promise.resolve()
 	} else {
-		// console.log(jsonConfig)
-		// console.log(needSectionType)
-		// console.log(sname)
+		return Promise.reject(sname, needSectionType, rv)
 	}
-	return Promise.reject()
+	if (PODCLASH_DATA.get(sname) && needSectionType != 'Configuration') {
+		// clear codemirror object first
+		// PODCLASH_DATA.clear()
+		// if (JSON.stringify(PODCLASH_DATA.get(sname)) != JSON.stringify(jsonConfig)) {
+		// 	if (confirm(needSectionType + ': ' + sname + _(' is repeat with existing, do you wan\'t to overwrite??'))) {
+		// 		PODCLASH_DATA.set(sname, jsonConfig)
+		// 	}
+		// } else {
+		// 	PODCLASH_DATA.set(sname, jsonConfig)
+		// }
+	}
+	return Promise.resolve(rv)
 }
 
 const viewConfig = function (section_id, ev) {
 	if (this.parentsection) {
 		// view config will open new modal dialog, so we need to save the current modal dialog first
-		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, undefined, true)
+		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, true)
 	}
 	const sid = section_id ? section_id : this.parentsection.section
-	ui.showModal(_('View: ' + this.sectiontype), [
-		E('p', {}, [E('em', { 'style': 'white-space:pre' }, sid)]),
+	ui.showModal(_('View: ' + sid + ' (' + this.sectiontype + ')'), [
+		// E('p', {}, [E('em', { 'style': 'white-space:pre' }, this.sectiontype)]),
 		E('div', { 'style': 'border: 1px solid #ccc;border-radius:3px;width:100%;' },
-			E('textarea', { 'class': 'view_edit_textarea', 'style': 'width:100%', 'rows': 28, },
+			E('textarea', { 'class': 'view_edit_textarea', 'id': 'view_edit_textarea', 'style': 'width:100%', 'rows': 28, },
 				jsyaml.dump(genConfig(PODCLASH_DATA.get(), sid, this.sectiontype), { flowLevel: 2 })
 			)
 		),
@@ -1178,23 +1147,91 @@ const viewConfig = function (section_id, ev) {
 						ui.hideModal()
 				})
 			}, [_('Dismiss')]), ' ',
+			this.sectiontype == "Configuration" ? E('button', {
+				'class': 'cbi-button cbi-button-apply',
+				'click': (() => {
+					const yaml = document.getElementById('view_edit_textarea').innerHTML
+					const yamlfile = new File([yaml], section_id + '.yaml', { type: "text/plan" })
+					const dl_link = document.createElement('a');
+					dl_link.href = window.URL.createObjectURL(yamlfile);
+					dl_link.download = section_id + '.yaml';
+					dl_link.click();
+				})
+			}, [_('Download')]) : '', ' ',
 			E('button', {
 				'class': 'cbi-button cbi-button-positive important',
 				'click': (() => {
 					const yaml = PODCLASH_DATA.get(sid, '__viewCodeMirror').getValue()
 					try {
 						resolveConfig(jsyaml.load(yaml), sid, this.sectiontype)
-						if (this.sectiontype != "Configuration") {
-							this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section)
-						}
-						else {
-							// need to upload to server
-							PODCLASH_DATA.clear()
-							this.handleModalSave(this.map, section_id)
-							ui.hideModal()
-						}
+							.then(resolved_obj => {
+								if (resolved_obj['.type']) {
+									// resolved object has type, its A single proxy/group/provider section.
+									PODCLASH_DATA.set(resolved_obj['.name'], resolved_obj)
+								} else {
+									let k, cancel;
+									// its configuration or proxies/groups/providers
+									if (resolved_obj[sid]['.type']) {
+										// overwrite whole configuration
+										PODCLASH_DATA.set(sid, resolved_obj[sid])
+									} else {
+										for (k in resolved_obj[sid]) {
+											// rewirte proxies/groups/providers
+											PODCLASH_DATA.set(sid, k, resolved_obj[sid][k])
+										}
+									}
+									// handle proxies/groups/providers sections
+									const duplicated = []
+									for (k in resolved_obj) {
+										// skip configuration
+										if (k == sid) continue;
+										if (PODCLASH_DATA.get(k)) {
+											const compare = function (origin, target) {
+												if (typeof target !== "object") {
+													return origin === target;
+												}
+												if (typeof origin !== "object") {
+													return false;
+												}
+												for (let key of Object.keys(target)) {
+													if (!compare(origin[key], target[key])) {
+														return false;
+													}
+												}
+												return true;
+											}
+											// PODCLASH_DATA.clear(k)
+											// if (JSON.stringify(PODCLASH_DATA.get(k)) != JSON.stringify(resolved_obj[k]))
+											if (!compare(PODCLASH_DATA.get(k), resolved_obj[k]))
+												duplicated.push(resolved_obj[k]['.type'] + ': ' + k)
+										}
+									}
+									if (duplicated.length > 0) {
+										if (!confirm(_('!!!DUPLICATE EXISTS WARNING!!!') + '\n' + duplicated.join('\n') + _('\nDo you wan\'t to overwrite??'))) {
+											cancel = true
+										}
+									}
+									if (cancel) return
+									for (k in resolved_obj) {
+										// skip configuration
+										if (k == sid) continue;
+										PODCLASH_DATA.set(k, resolved_obj[k])
+									}
+								}
+
+								// render modal
+								if (this.sectiontype != "Configuration") {
+									this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section)
+								} else {
+									PODCLASH_DATA.clear()
+									// different handleModalSave doing differents, view/edit button in global, it'll upload configurations to server
+									this.handleModalSave(this.map, section_id)
+									ui.hideModal()
+								}
+							})
 					} catch (error) {
 						alert(error)
+						throw (error)
 					}
 
 				})
@@ -1206,8 +1243,92 @@ const viewConfig = function (section_id, ev) {
 		genViewCodeMirror(view_edit_textarea, sid)
 }
 
-const applyConfig = function (section_id) {
+async function file2Tar(tarFile, fileToLoad) {
+	if (!fileToLoad) return
+	function file2Byte(file) {
+		return new Promise((resolve, reject) => {
+			var fileReader = new FileReader();
+			fileReader.onerror = () => {
+				fileReader.abort();
+				reject(new DOMException("Problem parsing input file."));
+			};
+			fileReader.onload = (fileLoadedEvent) => {
+				resolve(tar.ByteHelper.stringUTF8ToBytes(fileLoadedEvent.target.result));
+			}
+			fileReader.readAsBinaryString(file);
+		})
+	}
+	const x = await file2Byte(fileToLoad)
+	return fileByte2Tar(tarFile, fileToLoad.name, x).downloadAs(fileToLoad.name + ".tar")
+}
 
+function fileByte2Tar(tarFile, fileName, fileBytes) {
+	if (!tarFile) tarFile = tar.TarFile.create(fileName)
+	var tarHeader = tar.TarFileEntryHeader.default();
+	var tarFileEntryHeader = new tar.TarFileEntryHeader
+		(
+			// tar.ByteHelper.bytesToStringUTF8(fileName),
+			fileName,
+			tarHeader.fileMode,
+			tarHeader.userIDOfOwner,
+			tarHeader.userIDOfGroup,
+			fileBytes.length, // fileSizeInBytes,
+			tarHeader.timeModifiedInUnixFormat, // todo
+			0, // checksum,
+			tar.TarFileTypeFlag.Instances().Normal,
+			tarHeader.nameOfLinkedFile,
+			tarHeader.uStarIndicator,
+			tarHeader.uStarVersion,
+			tarHeader.userNameOfOwner,
+			tarHeader.groupNameOfOwner,
+			tarHeader.deviceNumberMajor,
+			tarHeader.deviceNumberMinor,
+			tarHeader.filenamePrefix
+		);
+
+	tarFileEntryHeader.checksumCalculate();
+	var entryForFileToAdd = new tar.TarFileEntry
+		(
+			tarFileEntryHeader,
+			fileBytes
+		);
+
+	tarFile.entries.push(entryForFileToAdd);
+	return tarFile
+}
+
+const applyConfig = async function (section_id) {
+	if (!PODCLASH_DATA.get(section_id) || PODCLASH_DATA.get(section_id)['.type'] != 'Configuration') return
+	const yaml = jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, 'Configuration'))
+	const yamlfile = new File([yaml], section_id + '.yaml', { type: "text/plan" })
+	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
+	tar.Globals.Instance.tarFile = tar.TarFile.create("Archive.tar")
+	const tarfile = await file2Tar(tar.Globals.Instance.tarFile, yamlfile)
+	let [podIP, podRunning] = await getPodIP(POD_NAME)
+	if (!podRunning) {
+		ui.addNotification(null, "Apply configuration " + section_id + " ERROR: no container or container not running!")
+		return
+	}
+
+	sendXHR('PUT', '/socket/containers/' + POD_NAME + '/archive?path=/tmp/', {
+		'socket_path': '/var/run/docker.sock',
+		'Content-Type': 'application/json'
+	}, tarfile, function () {
+		if (this.status == 200) {
+			sendXHR('PUT', "http://" + podIP + ":" + CLASH_PORT + "/configs?force=true", {
+				'Authorization': "Bearer " + CLASH_SECRET,
+			}, '{"path": "/tmp/' + section_id + '.yaml"}', function () {
+				if (this.satus < 300) {
+
+				} else {
+					// alert(JSON.parse(this.response).message)
+					ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + JSON.parse(this.response).message)
+				}
+			})
+		} else {
+			ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + JSON.parse(this.response))
+		}
+	})
 }
 
 const removeConfig = function (section_id) {
@@ -1218,6 +1339,138 @@ const removeConfig = function (section_id) {
 		this.map.save(this.map, section_id)
 			.then(PODCLASH_DATA.upload())
 	}
+}
+
+const getPodIP = function (pod_name) {
+	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
+	return request.request('/socket/containers/' + pod_name + '/json', {
+		method: 'GET',
+		query: {},
+		headers: {
+			'Content-Type': 'application/json',
+			'socket_path': '/var/run/docker.sock'
+		},
+		credentials: true
+	}).then((res) => {
+		if (res.status < 300) {
+			const r = JSON.parse(res.responseText)
+			if (r.NetworkSettings && r.NetworkSettings.Networks) {
+				for (var i in r.NetworkSettings.Networks) {
+					return [r.NetworkSettings.Networks[i].IPAddress, r.State.Running]
+				}
+			}
+		} else {
+			return []
+		}
+	})
+}
+
+const sendXHR = function (method, url, header, body, cb) {
+	let xhr = new XMLHttpRequest()
+	xhr.open(method, url, true)
+	for (var k in header) {
+		xhr.setRequestHeader(k, header[k])
+	}
+	xhr.onload = cb
+	xhr.send(body)
+}
+
+const getPodLogs = function () {
+	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
+	let logs = ''
+	sendXHR('GET', '/socket/containers/' + POD_NAME + '/logs?stdout=1&stderr=1',{
+		"socket_path": '/var/run/docker.sock'
+	}, null, function(){
+		// let _length = 0, index = 0
+		// while (index < this.response.length) {
+		// 	_length = this.response[index + 4].charCodeAt(0) * 256 * 256 * 256 + this.response[index + 5].charCodeAt(0) * 256 * 256 + this.response[index + 6].charCodeAt(0) * 256 + this.response[index + 7].charCodeAt(0)
+		// 	if (index + 8 + _length > this.response.length) {
+		// 		break;
+		// 	}
+		// 	logs += this.response.substr(index + 8, _length)
+		// 	index += (_length + 8)
+		// }
+		if (this.status >= 300) return
+		const buf = this.response.split('\n')
+		buf.forEach(line => {
+			logs += line.substr(8) + '\n'
+		})
+		document.getElementById('clashlog').rows = buf.length + 1
+		document.getElementById('clashlog').innerHTML = logs
+	})
+
+}
+
+const getClashInfo = async function () {
+	let [podIP, podRunning] = await getPodIP(POD_NAME)
+	if (podIP) {
+		if (podRunning) {
+			sendXHR('GET', "http://" + podIP + ":" + CLASH_PORT + "/configs", {
+				'Authorization': "Bearer " + CLASH_SECRET
+			}, null, function () {
+				if (this.status < 300) {
+					const res = JSON.parse(this.response)
+					const h = {
+						'_INFO_00pod_name': '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>',
+						'_INFO_01pod_ip': podIP,
+						'_INFO_11clash_running_mode': res.mode.toUpperCase(),
+						// '_INFO_12clash_proxies_rules': '',
+						'_INFO_13clash_ports': 'Http: ' + res.port + ' | Socks: ' + res['socks-port'] + ' | Mixed: ' + res['mixed-port'],
+						'_INFO_22clash_dashboard': "<a href=http://" + podIP + ":" + CLASH_PORT + "/ui>http://" + podIP + ":" + CLASH_PORT + "/ui</a>",
+						'_INFO_21external_controller': "http://" + podIP + ":" + CLASH_PORT + "<br>Secret: " + CLASH_SECRET
+					}
+					for (var k in h) {
+						const id = 'cbi-json-' + k + '-value'
+						document.getElementById(id).children[0].innerHTML = h[k]
+					}
+				}
+			})
+
+			sendXHR('GET', "http://" + podIP + ":" + CLASH_PORT + "/proxies", {
+				'Authorization': "Bearer " + CLASH_SECRET
+			}, null, function () {
+				if (this.status < 300) {
+					const res = JSON.parse(this.response)
+					let count = 0
+					for (var k in res.proxies) {
+						count++
+					}
+					count -= 3
+					let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
+					val = val.replace(/(?<=Proxies: )[\d\-]+/, count)
+
+					document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
+				}
+			})
+			sendXHR('GET', "http://" + podIP + ":" + CLASH_PORT + "/rules", {
+				'Authorization': "Bearer " + CLASH_SECRET
+			}, null, function () {
+				if (this.status < 300) {
+					const res = JSON.parse(this.response)
+					let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
+					val = val.replace(/(?<=Rules: )[\d\-]+/, String(res.rules.length))
+
+					document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
+				}
+			})
+			sendXHR('GET', "http://" + podIP + ":" + CLASH_PORT + "/version", {
+				'Authorization': "Bearer " + CLASH_SECRET
+			}, null, function () {
+				if (this.status < 300) {
+					const res = JSON.parse(this.response)
+					document.getElementById('cbi-json-_INFO_10clash_version-value').children[0].innerHTML = res.version
+				}
+			})
+		} else {
+			// not running
+			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + POD_NAME + ' first!')
+		}
+	} else {
+		//no container
+		const cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
+		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + cmd + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
+	}
+
 }
 
 return baseclass.extend({
@@ -1242,6 +1495,8 @@ return baseclass.extend({
 	genRulesCodeMirror: genRulesCodeMirror,
 	genCodeMirror: genCodeMirror,
 	renderCodeMirrors: renderCodeMirrors,
+	getClashInfo: getClashInfo,
+	getPodLogs: getPodLogs,
 
 	proxy_types: proxy_types,
 	ciphers: ciphers,
