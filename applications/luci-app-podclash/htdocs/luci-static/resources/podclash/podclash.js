@@ -12,6 +12,7 @@
 'require podclash/tar as tar';
 
 const SERVER_SIDE_CONFIG_PATH = '/etc/config/podclash'
+const CLASH_CONFIG_PATH = '/clash/config.yaml'
 const POD_NAME = 'podclash'
 const CLASH_PORT = '9090'
 const CLASH_SECRET = 'podclash'
@@ -99,6 +100,8 @@ const default_config = {
 	"dns_listen": '0.0.0.0:53',
 	"dns_enhanced-mode": 'redir',
 	"dns_default-nameserver": ['223.5.5.5', '119.29.29.29'],
+	"dns_nameserver": ['119.29.29.29', '119.28.28.28', '223.6.6.6', '223.5.5.5', 'tls://dns.rubyfish.cn:853'],
+	"dns_fallback": ['tls://dns.rubyfish.cn:853', 'tls://8.8.4.4:853', 'tls://1.0.0.1:853']
 }
 
 const template = {
@@ -1300,7 +1303,7 @@ function fileByte2Tar(tarFile, fileName, fileBytes) {
 const applyConfig = async function (section_id) {
 	if (!PODCLASH_DATA.get(section_id) || PODCLASH_DATA.get(section_id)['.type'] != 'Configuration') return
 	const yaml = jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, 'Configuration'))
-	const yamlfile = new File([yaml], section_id + '.yaml', { type: "text/plan" })
+	const yamlfile = new File([yaml], 'config.yaml', { type: "text/plan" })
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
 	tar.Globals.Instance.tarFile = tar.TarFile.create("Archive.tar")
 	const tarfile = await file2Tar(tar.Globals.Instance.tarFile, yamlfile)
@@ -1310,23 +1313,24 @@ const applyConfig = async function (section_id) {
 		return
 	}
 
-	sendXHR('PUT', '/socket/containers/' + POD_NAME + '/archive?path=/tmp/', {
+	sendXHR('PUT', '/socket/containers/' + POD_NAME + '/archive?path=/clash/', {
 		'socket_path': '/var/run/docker.sock',
 		'Content-Type': 'application/json'
 	}, tarfile, function () {
 		if (this.status == 200) {
 			sendXHR('PUT', "http://" + podIP + ":" + CLASH_PORT + "/configs?force=true", {
 				'Authorization': "Bearer " + CLASH_SECRET,
-			}, '{"path": "/tmp/' + section_id + '.yaml"}', function () {
-				if (this.satus < 300) {
-
+			}, '{"path": "'+CLASH_CONFIG_PATH+'"}', function () {
+				if (this.status < 300) {
+					getClashInfo()
+					alert("Apply configuration " + section_id + ' Success!')
 				} else {
 					// alert(JSON.parse(this.response).message)
 					ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + JSON.parse(this.response).message)
 				}
 			})
 		} else {
-			ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + JSON.parse(this.response))
+			ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + this.response)
 		}
 	})
 }
@@ -1356,7 +1360,8 @@ const getPodIP = function (pod_name) {
 			const r = JSON.parse(res.responseText)
 			if (r.NetworkSettings && r.NetworkSettings.Networks) {
 				for (var i in r.NetworkSettings.Networks) {
-					return [r.NetworkSettings.Networks[i].IPAddress, r.State.Running]
+					// if bridge network using host ip
+					return [i == 'bridge' ? location.hostname : (r.NetworkSettings.Networks[i].IPAddress || r.NetworkSettings.Networks[i].IPAMConfig.IPv4Address), r.State.Running]
 				}
 			}
 		} else {
@@ -1378,9 +1383,9 @@ const sendXHR = function (method, url, header, body, cb) {
 const getPodLogs = function () {
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
 	let logs = ''
-	sendXHR('GET', '/socket/containers/' + POD_NAME + '/logs?stdout=1&stderr=1',{
+	sendXHR('GET', '/socket/containers/' + POD_NAME + '/logs?stdout=1&stderr=1', {
 		"socket_path": '/var/run/docker.sock'
-	}, null, function(){
+	}, null, function () {
 		// let _length = 0, index = 0
 		// while (index < this.response.length) {
 		// 	_length = this.response[index + 4].charCodeAt(0) * 256 * 256 * 256 + this.response[index + 5].charCodeAt(0) * 256 * 256 + this.response[index + 6].charCodeAt(0) * 256 + this.response[index + 7].charCodeAt(0)
@@ -1403,8 +1408,8 @@ const getPodLogs = function () {
 
 const getClashInfo = async function () {
 	let [podIP, podRunning] = await getPodIP(POD_NAME)
-	if (podIP) {
-		if (podRunning) {
+	if (podRunning == true) {
+		if (podIP) {
 			sendXHR('GET', "http://" + podIP + ":" + CLASH_PORT + "/configs", {
 				'Authorization': "Bearer " + CLASH_SECRET
 			}, null, function () {
@@ -1462,10 +1467,12 @@ const getClashInfo = async function () {
 				}
 			})
 		} else {
-			// not running
-			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + POD_NAME + ' first!')
+			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>'+ ' first!')
 		}
-	} else {
+	} else if (podRunning == false) {
+		// not running
+		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>' + ' first!')
+	}	else {
 		//no container
 		const cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
 		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + cmd + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'

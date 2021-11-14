@@ -27,14 +27,14 @@ return view.extend({
 		}, 0);
 		podclash.data.init(_data)
 
-		_data["_INFO_00pod_name"] = {key: _('POD Name'), value:'-', ".type": '_INFO', ".name": '_INFO_00pod_name'}
-		_data["_INFO_01pod_ip"] = {key: _('POD IP'), value:'-', ".type": '_INFO', ".name": '_INFO_01pod_ip'}
-		_data["_INFO_10clash_version"] = {key: _('Clash Version'), value:'-', ".type": '_INFO', ".name": '_INFO_10clash_version'}
-		_data["_INFO_11clash_running_mode"] = {key: _('Running Mode'), value:'-', ".type": '_INFO', ".name": '_INFO_11clash_running_mode'}
-		_data["_INFO_12clash_proxies_rules"] = {key: _('Proxies & Rules'), value:'Proxies: - | Rules: -', ".type": '_INFO', ".name": '_INFO_12clash_proxies_rules'}
-		_data["_INFO_13clash_ports"] = {key: _('Clash Ports'), value:'-', ".type": '_INFO', ".name": '_INFO_13clash_ports'}
-		_data["_INFO_22clash_dashboard"] = {key: _('Clash Dashboard'), value:'-', ".type": '_INFO', ".name": '_INFO_22clash_dashboard'}
-		_data["_INFO_21external_controller"] = {key: _('External Controller'), value:'-', ".type": '_INFO', ".name": '_INFO_21external_controller'}
+		_data["_INFO_00pod_name"] = { key: _('POD Name'), value: '-', ".type": '_INFO', ".name": '_INFO_00pod_name' }
+		_data["_INFO_01pod_ip"] = { key: _('IP'), value: '-', ".type": '_INFO', ".name": '_INFO_01pod_ip' }
+		_data["_INFO_10clash_version"] = { key: _('Clash Version'), value: '-', ".type": '_INFO', ".name": '_INFO_10clash_version' }
+		_data["_INFO_11clash_running_mode"] = { key: _('Running Mode'), value: '-', ".type": '_INFO', ".name": '_INFO_11clash_running_mode' }
+		_data["_INFO_12clash_proxies_rules"] = { key: _('Proxies & Rules'), value: 'Proxies: - | Rules: -', ".type": '_INFO', ".name": '_INFO_12clash_proxies_rules' }
+		_data["_INFO_13clash_ports"] = { key: _('Clash Ports'), value: '-', ".type": '_INFO', ".name": '_INFO_13clash_ports' }
+		_data["_INFO_22clash_dashboard"] = { key: _('Clash Dashboard'), value: '-', ".type": '_INFO', ".name": '_INFO_22clash_dashboard' }
+		_data["_INFO_21external_controller"] = { key: _('External Controller'), value: '-', ".type": '_INFO', ".name": '_INFO_21external_controller' }
 		_data["_logs"] = {}
 
 		var m, s, o, ss, so
@@ -243,8 +243,8 @@ return view.extend({
 		}
 		o = s.option(form.DummyValue, "__proxy_nums", _("Proxies"))
 		o.cfgvalue = function (section_id) {
-			let num = (podclash.data.get(section_id, 'proxies') && podclash.data.get(section_id, 'proxies').length || 0) + 
-			(podclash.data.get(section_id, 'proxy-groups') && podclash.data.get(section_id, 'proxy-groups').length || 0)
+			let num = (podclash.data.get(section_id, 'proxies') && podclash.data.get(section_id, 'proxies').length || 0) +
+				(podclash.data.get(section_id, 'proxy-groups') && podclash.data.get(section_id, 'proxy-groups').length || 0)
 			return String(num)
 		}
 		o = s.option(form.DummyValue, "__rule_nums", _("Rules"))
@@ -420,7 +420,7 @@ return view.extend({
 			so = ss.option(form.Value, 'port', _('Port'))
 			so.datatype = "port"
 			so.DATATYPE = "number"
-			so.cfgvalue = function(section_id) {
+			so.cfgvalue = function (section_id) {
 				return podclash.data.get(section_id, "port") && String(podclash.data.get(section_id, "port"))
 			}
 			so.depends({ type: 'proxy-providers', "!reverse": true })
@@ -952,22 +952,33 @@ return view.extend({
 		// logs
 		s = m.section(form.NamedSection, '_logs', _("Logs"), null)
 		o = s.option(form.Value, '_log', _('Logs'))
-		o.render = async function(sid){
+		o.render = async function (sid) {
 			setTimeout(() => {
-				podclash.getPodLogs()
+				const target = document.getElementsByClassName('cbi-map-tabbed')[0].children[2]
+				const options = {
+					attributes: true,
+					attributeFilter: ['data-tab-active']
+				}
+				const mb = new MutationObserver(function (mutationRecord, observer) {
+					if (target.getAttribute("data-tab-active") == "true") {
+						podclash.getPodLogs()
+					}
+				})
+				mb.observe(target, options)
 			}, 0);
 			return E([], [
-				E('h3', {}, [ _('Logs') ]),
-				E('div', { 'id': 'content_clashlog', 
-				'style': 'font-size:12px; width:100%'
-			 }, [
+				E('h3', { 'id': 'cbi-json-_logs' }, [_('Logs')]),
+				E('div', {
+					'id': 'content_clashlog',
+					'style': 'font-size:12px; width:100%'
+				}, [
 					E('textarea', {
 						'id': 'clashlog',
 						'style': 'font-size:12px; width:100%',
 						'readonly': 'readonly',
 						'wrap': 'off',
 						'rows': 10
-					}, '' )
+					}, '')
 				])
 			]);
 		}
