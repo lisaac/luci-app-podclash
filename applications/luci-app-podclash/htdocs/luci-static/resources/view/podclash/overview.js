@@ -432,6 +432,14 @@ return view.extend({
 			}
 			so = ss.option(form.Value, 'server', _('Server'))
 			so.depends({ type: 'proxy-providers', "!reverse": true })
+			so.cfgvalue = function(section_id) {
+				if(podclash.data.get(section_id, 'type')!='proxy-providers'){
+					return podclash.data.get(section_id, 'server')
+				} else {
+					return podclash.data.get(section_id, 'proxy-providers_url')
+				}
+			}
+
 			so = ss.option(form.Value, 'port', _('Port'))
 			so.datatype = "port"
 			so.DATATYPE = "number"
@@ -764,6 +772,7 @@ return view.extend({
 			// proxy groups
 			o = sConfig.taboption('proxies', form.SectionValue, 'proxy-groups', form.GridSection, 'proxy-groups', _('Proxy Groups'))
 			ss = o.subsection
+			ss.anonymous = false
 			ss.addremove = true
 			ss.modaltitle = function (section_id) {
 				return _('Proxy Group') + ': ' + this.parentsection.section + ' -> ' + section_id || "New Proxy Group"
@@ -838,6 +847,7 @@ return view.extend({
 			o = sConfig.taboption('rules', form.SectionValue, 'rule-providers', form.GridSection, 'rule-providers', _('Rule Providers'))
 			ss = o.subsection
 			ss.parentsection = sConfig
+			ss.anonymous = false
 			ss.addremove = true
 
 			ss.modaltitle = function (section_id) {
@@ -855,6 +865,7 @@ return view.extend({
 
 			so = ss.option(form.ListValue, "type", _("Type"))
 			so.default = "http"
+			so.modalonly = true
 			so.readonly = true
 			so.value("http", _("HTTP"))
 			so.value("file", _("File"))
@@ -867,11 +878,10 @@ return view.extend({
 
 			so = ss.option(form.Value, "path", _("Path"))
 			so.placeholder='/clash/rules/provider_name.yaml'
+			so.modalonly = true
 			so.readonly = true
 
 			so = ss.option(form.Value, "url", _("URL"))
-			so.modalonly = true
-
 			so = ss.option(form.Value, "interval", _("Interval(s)"))
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
