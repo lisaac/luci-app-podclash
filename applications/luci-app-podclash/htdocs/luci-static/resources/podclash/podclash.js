@@ -13,6 +13,8 @@
 
 const SERVER_SIDE_CONFIG_PATH = '/etc/config/podclash'
 const CLASH_CONFIG_PATH = '/clash/config.yaml'
+const CLASH_PROXY_PROVIDERS_PATH = '/clash/proxies/'
+const CLASH_RULE_PROVIDERS_PATH = '/clash/rules/'
 const POD_NAME = 'podclash'
 const CLASH_PORT = '9090'
 const CLASH_SECRET = 'podclash'
@@ -547,13 +549,13 @@ const handleModalSave = function (modalMap, sid, ev) {
 					if (PODCLASH_DATA.get(sid, 'proxy-providers_url') && PODCLASH_DATA.get(sid, 'proxy-providers_url') != "") {
 						if (PODCLASH_DATA.get(sid, 'proxy-providers_url').match(/^http:\/\/127.0.0.1:25500\/sub\?target=clash&list=true&url=/) == null) {
 							PODCLASH_DATA.set(sid, 'proxy-providers_url', toSubconverter(PODCLASH_DATA.get(sid, 'proxy-providers_url')))
-							PODCLASH_DATA.set(sid, 'proxy-providers_path', '/clash/proxies/' + sid + '.yaml')
+							PODCLASH_DATA.set(sid, 'proxy-providers_path', CLASH_PROXY_PROVIDERS_PATH + sid + '.yaml')
 						}
 					}
 				}
 				// handle rule providers path
 				if (configSectionType == 'rule-providers') {
-					PODCLASH_DATA.set(sid, 'path', '/clash/rules/' + sid + '.yaml')
+					PODCLASH_DATA.set(sid, 'path', CLASH_RULE_PROVIDERS_PATH + sid + '.yaml')
 				}
 				// save the section name to podclash data
 				PODCLASH_DATA.get(configName, configSectionType) ? PODCLASH_DATA.get(configName, configSectionType).push(sid) : PODCLASH_DATA.set(configName, configSectionType, [sid])
@@ -1006,6 +1008,7 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 		isSectionofConfig = true
 		needSectionType = 'Configuration'
 	}
+	console.log(jsonConfig)
 
 	//const unflatten = function (data) {
 	// 	"use strict";
@@ -1040,7 +1043,7 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 				var isEmpty = true;
 				for (var p in cur) {
 					isEmpty = false;
-					if (p == 'server' || p == 'port' || p == 'type' || p == 'port' || p == 'udp' || p == 'tls' || p == 'skip-cert-verify')
+					if (p == 'server' || p == 'port' || p == 'type' || p == 'udp' || p == 'tls' || p == 'skip-cert-verify')
 						recurse(cur[p], p);
 					else
 						recurse(cur[p], prop ? prop + "_" + p : p);
@@ -1059,8 +1062,10 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 				// proxy
 				rv = flatten(jsonConfig, jsonConfig['type'])
 			} else {
-				// proxy-provider
-				rv = flatten(jsonConfig[sname], jsonConfig[sname]['type'])
+				// proxy-providers
+				rv = flatten(jsonConfig[sname], 'proxy-providers')
+				rv['type'] = 'proxy-providers'
+				rv['proxy-providers_path'] = CLASH_PROXY_PROVIDERS_PATH + sname + '.yaml'
 			}
 			break;
 		case 'proxy-providers':
@@ -1070,13 +1075,14 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 				rv = flatten(Object.values(jsonConfig)[0], Object.values(jsonConfig)[0]['type'])
 			}
 			break;
-		case 'proxy-groups':
+		// case 'proxy-groups':
 		case 'rule-providers':
 			if (jsonConfig['type']) {
 				rv = jsonConfig
 			} else {
 				rv = Object.values(jsonConfig)[0]
 			}
+			rv['rule-providers_path'] = CLASH_RULE_PROVIDERS_PATH + sname + '.yaml'
 			break;
 		case 'Configuration':
 			if (isSectionofConfig) {
@@ -1120,7 +1126,7 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	if (rv != null && typeof rv === 'object') {
 		// add meta data for proxy/proxy-group/provider sections
 		if (needSectionType != 'Configuration' && !isSectionofConfig) {
-			rv['.type'] = (needSectionType == 'proxy-providers') && 'proxies' || ((needSectionType == 'rules') && sname.split(/\d+/)[0] || needSectionType)
+			rv['.type'] = (needSectionType == 'proxy-providers') && 'proxies' || needSectionType
 			rv['.name'] = sname
 			rv['.anonymous'] = false
 		}
