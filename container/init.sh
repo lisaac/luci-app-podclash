@@ -474,7 +474,7 @@ update_yacd() {
 	unzip /tmp/yacd.zip -d $CLASH_PATH
 	mv $CLASH_PATH/yacd-gh-pages $YACD_PATH &> /dev/null
 	# add default config
-	sed -i "s|</body>|<script type=\"text/javascript\">localStorage[\"yacd.haishan.me\"] = \'{\"clashAPIConfigs\":[{\"baseURL\":\"http://\'+location.hostname+\':9090\",\"secret\":\"podclash\",\"addedAt\":0}]}\'</script></body>|" index.html
+	sed -i "s|</body>|<script type=\"text/javascript\">localStorage[\"yacd.haishan.me\"] = \'{\"clashAPIConfigs\":[{\"baseURL\":\"http://\'+location.hostname+\':9090\",\"secret\":\"podclash\",\"addedAt\":0}]}\'</script></body>|" $YACD_PATH/index.html
 	rm $YACD_PATH/CNAME &> /dev/null
 }
 

@@ -462,10 +462,13 @@ return view.extend({
 			so.value("http")
 			so.value("file")
 			so.modalonly = true
+			so.readonly = true
+			so.default = 'http'
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_path', _('Path'))
 			so.placeholder='/clash/proxies/provider_name.yaml'
+			so.readonly = true
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers' })
 
@@ -474,7 +477,8 @@ return view.extend({
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_interval', _('Interval'))
-			so.placeholder='86400'
+			so.placeholder='3600'
+			so.default = 3600
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.modalonly = true
@@ -482,16 +486,21 @@ return view.extend({
 
 			so = ss.option(form.Flag, 'proxy-providers_health-check_enable', _('Health check'))
 			so.DATATYPE = "boolean"
+			so.default = true
 			so.enabled = true
 			so.disabled = false
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_health-check_url', _('Health check url'))
+			so.placeholder = 'http://www.gstatic.com/generate_204'
+			so.default = 'http://www.gstatic.com/generate_204'
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers', "proxy-providers_health-check_enable": true })
 
 			so = ss.option(form.Value, 'proxy-providers_health-check_interval', _('Health check interval'))
+			so.placeholder = 300
+			so.default = 300
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.modalonly = true
@@ -846,6 +855,7 @@ return view.extend({
 
 			so = ss.option(form.ListValue, "type", _("Type"))
 			so.default = "http"
+			so.readonly = true
 			so.value("http", _("HTTP"))
 			so.value("file", _("File"))
 
@@ -857,6 +867,8 @@ return view.extend({
 
 			so = ss.option(form.Value, "path", _("Path"))
 			so.placeholder='/clash/rules/provider_name.yaml'
+			so.readonly = true
+
 			so = ss.option(form.Value, "url", _("URL"))
 			so = ss.option(form.Value, "interval", _("Interval(s)"))
 			so.datatype = "uinteger"

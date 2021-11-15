@@ -527,6 +527,10 @@ const handleModalCancel = function (modalMap, ev) {
 	return Promise.resolve(this.map.parent.children[1].renderMoreOptionsModal(this.parentsection.section))
 }
 
+const toSubconverter = function (url) {
+	return 'http://127.0.0.1:25500/sub?target=clash&list=true&url=' + encodeURIComponent(url)
+}
+
 const handleModalSave = function (modalMap, sid, ev) {
 	const configName = this.parentsection.section
 	// let configSectionType = this.sectiontype.match(/^_rules_.+/) && 'rules' || this.sectiontype
@@ -536,13 +540,24 @@ const handleModalSave = function (modalMap, sid, ev) {
 		.then(L.bind(this.map.reset, this.map))
 		.then(L.bind(function () { this.addedSection = null }, this))
 		.then(this.map.parent.children[1].renderMoreOptionsModal(configName))
-		// save the section name to podclash data
 		.then(
 			(() => {
-				PODCLASH_DATA.get(configName, configSectionType) ? PODCLASH_DATA.get(configName, configSectionType).push(sid) : PODCLASH_DATA.set(configName, configSectionType, [sid])
-				function unique(arr) {
-					return Array.from(new Set(arr))
+				// handle proxy providers path and url(subconverter)
+				if (configSectionType == 'proxies' && PODCLASH_DATA.get(sid, 'type') == 'proxy-providers') {
+					if (PODCLASH_DATA.get(sid, 'proxy-providers_url') && PODCLASH_DATA.get(sid, 'proxy-providers_url') != "") {
+						if (PODCLASH_DATA.get(sid, 'proxy-providers_url').match(/^http:\/\/127.0.0.1:25500\/sub\?target=clash&list=true&url=/) == null) {
+							PODCLASH_DATA.set(sid, 'proxy-providers_url', toSubconverter(PODCLASH_DATA.get(sid, 'proxy-providers_url')))
+							PODCLASH_DATA.set(sid, 'proxy-providers_path', '/clash/proxies/' + sid + '.yaml')
+						}
+					}
 				}
+				// handle rule providers path
+				if (configSectionType == 'rule-providers') {
+					PODCLASH_DATA.set(sid, 'path', '/clash/rules/' + sid + '.yaml')
+				}
+				// save the section name to podclash data
+				PODCLASH_DATA.get(configName, configSectionType) ? PODCLASH_DATA.get(configName, configSectionType).push(sid) : PODCLASH_DATA.set(configName, configSectionType, [sid])
+				function unique(arr) { return Array.from(new Set(arr)) }
 				PODCLASH_DATA.set(configName, configSectionType, unique(PODCLASH_DATA.get(configName, configSectionType)))
 			})()
 		)
@@ -897,7 +912,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 	let clone_config = function (cfg, key) {
 		for (k in cfg) {
 			if (cfg[k] == null) {
-				const dat = podclash_data[sid][k] || podclash_data[sid][key + '_' + k]
+				const dat = podclash_data[sid][key + '_' + k] || podclash_data[sid][k] 
 				// clone data
 				cfg[k] = dat && JSON.parse(JSON.stringify(dat))
 			} else if (typeof cfg[k] != 'string' && typeof cfg[k] != 'number' && typeof cfg[k] != 'boolean') {
@@ -954,7 +969,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 				part_config[sec] = []
 				for (k in podclash_data[sid][sec]) {
 					const json_cfg = genConfig(podclash_data, podclash_data[sid][sec][k], __sec)
-					if (json_cfg == null || !json_cfg) return
+					if (isNullObj(json_cfg) || !json_cfg) continue
 					if (podclash_data[podclash_data[sid][sec][k]] && podclash_data[podclash_data[sid][sec][k]]['type'] == 'proxy-providers' || sec == 'rule-providers') {
 						const _sec = (sec == 'rule-providers') && 'rule-providers' || 'proxy-providers'
 						if (part_config[_sec] && part_config[_sec].constructor === Object) {
@@ -970,8 +985,8 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 				}
 				// for Configuration type, remove the null section, 
 				// and for others reserve object [] or {}, it's use for show the null config section like: proxies:[]
-				if (isNullObj(part_config[sec]) && needSectionType == 'Configuration') {
-					part_config[sec] = undefined
+				if (part_config[sec].length == 0 && needSectionType == 'Configuration') {
+					delete part_config[sec]
 				}
 			})
 			break;
@@ -979,8 +994,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 
 	if (needSectionType == 'Configuration') {
 		return isNullObj(part_config) ? undefined : part_config
-	}
-	else {
+	}	else {
 		return part_config
 	}
 }
@@ -1302,7 +1316,7 @@ function fileByte2Tar(tarFile, fileName, fileBytes) {
 
 const applyConfig = async function (section_id, ev) {
 	if (!PODCLASH_DATA.get(section_id) || PODCLASH_DATA.get(section_id)['.type'] != 'Configuration') return
-	ev.target.innerHTML=_('Applying')
+	ev.target.innerHTML = _('Applying')
 	ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
 	const yaml = jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, 'Configuration'))
 	const yamlfile = new File([yaml], 'config.yaml', { type: "text/plan" })
@@ -1322,24 +1336,40 @@ const applyConfig = async function (section_id, ev) {
 		if (this.status == 200) {
 			sendXHR('PUT', "http://" + podIP + ":" + CLASH_PORT + "/configs?force=true", {
 				'Authorization': "Bearer " + CLASH_SECRET,
-			}, '{"path": "'+CLASH_CONFIG_PATH+'"}', function () {
+			}, '{"path": "' + CLASH_CONFIG_PATH + '"}', function () {
 				if (this.status < 300) {
 					getClashInfo()
 					setTimeout(() => {
-						ev.target.innerHTML=_('Succeed')
+						ev.target.innerHTML = _('Succeed')
 						ev.target.setAttribute('class', 'cbi-button cbi-button-save')
 					}, 500);
 					setTimeout(() => {
-						ev.target.innerHTML=_('Apply')
+						ev.target.innerHTML = _('Apply')
 						ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
 					}, 3000);
 				} else {
 					// alert(JSON.parse(this.response).message)
 					ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + JSON.parse(this.response).message)
+					setTimeout(() => {
+						ev.target.innerHTML = _('Failed')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
+					}, 500);
+					setTimeout(() => {
+						ev.target.innerHTML = _('Apply')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+					}, 3000);
 				}
 			})
 		} else {
 			ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + this.response)
+			setTimeout(() => {
+				ev.target.innerHTML = _('Failed')
+				ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
+			}, 500);
+			setTimeout(() => {
+				ev.target.innerHTML = _('Apply')
+				ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+			}, 3000);
 		}
 	})
 }
@@ -1476,12 +1506,12 @@ const getClashInfo = async function () {
 				}
 			})
 		} else {
-			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>'+ ' first!')
+			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>' + ' first!')
 		}
 	} else if (podRunning == false) {
 		// not running
 		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>' + ' first!')
-	}	else {
+	} else {
 		//no container
 		const cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
 		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + cmd + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
