@@ -1300,8 +1300,10 @@ function fileByte2Tar(tarFile, fileName, fileBytes) {
 	return tarFile
 }
 
-const applyConfig = async function (section_id) {
+const applyConfig = async function (section_id, ev) {
 	if (!PODCLASH_DATA.get(section_id) || PODCLASH_DATA.get(section_id)['.type'] != 'Configuration') return
+	ev.target.innerHTML=_('Applying')
+	ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
 	const yaml = jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, 'Configuration'))
 	const yamlfile = new File([yaml], 'config.yaml', { type: "text/plan" })
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
@@ -1322,8 +1324,15 @@ const applyConfig = async function (section_id) {
 				'Authorization': "Bearer " + CLASH_SECRET,
 			}, '{"path": "'+CLASH_CONFIG_PATH+'"}', function () {
 				if (this.status < 300) {
-					// getClashInfo()
-					alert("Apply configuration " + section_id + ' Success!')
+					getClashInfo()
+					setTimeout(() => {
+						ev.target.innerHTML=_('Succeed')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-save')
+					}, 500);
+					setTimeout(() => {
+						ev.target.innerHTML=_('Apply')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+					}, 3000);
 				} else {
 					// alert(JSON.parse(this.response).message)
 					ui.addNotification(null, "Apply configuration " + section_id + " ERROR: " + JSON.parse(this.response).message)

@@ -226,7 +226,10 @@ return view.extend({
 				}, _('View / Edit')),
 				E('button', {
 					'class': 'cbi-button cbi-button-apply',
-					'click': podclash.applyConfig.bind(this, section_id),
+					// 'click': podclash.applyConfig.bind(this, section_id),
+					'click': ui.createHandlerFn(this, function(ev) {
+						podclash.applyConfig(section_id, ev);
+					}),
 					'title': using ? _('Reload') : _('Apply')
 				}, using ? _('Reload') : _('Apply')),
 				tdEl.lastChild.firstChild,
