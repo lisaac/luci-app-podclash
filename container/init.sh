@@ -176,6 +176,26 @@ delete_iproute2() {
 	} &>/dev/null
 }
 
+add_white_list4() {
+	#$1: iptables, $2: table, $3 chain
+	[ ! -f /clash/whitelist/whitelist4 ] && return
+	while read line
+	do 
+		local host=$(echo $line | awk -F':' '{print $1}')
+		local port=$(echo $line | awk -F':' '{print $2}')
+		
+		if [ "$host" -a "$port" ]; then
+			$1 -t $2 -A $3 -s $host -p udp -m multiport --sports $port -j RETURN
+			$1 -t $2 -A $3 -s $host -p tcp -m multiport --sports $port -j RETURN
+		elif [ "$host" ]; then
+			$1 -t $2 -A $3 -s $host -j RETURN
+		elif [ "$port" ]; then
+			$1 -t $2 -A $3 -p udp -m multiport --sports $port -j RETURN
+			$1 -t $2 -A $3 -p tcp -m multiport --sports $port -j RETURN
+		fi
+	done < /clash/whitelist/whitelist4
+}
+
 loopback_addr() {
 	is_ipv4_ipts $1 && echo "127.0.0.1" || echo "::1"
 }
@@ -212,6 +232,8 @@ start_iptables_tproxy_mode() {
 	# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
 	# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 
+	is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
+	
 	$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
 	$1 -t mangle -A TP_PREROUTING -p udp --dport 53 -j RETURN
 	$1 -t mangle -A TP_PREROUTING -m addrtype --dst-type BROADCAST -j RETURN
@@ -247,6 +269,9 @@ start_iptables_redirect_mode() {
 	# $1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
 	# $1 -t nat    -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
 	# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
+
+	is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
+	is_true "$IPV4" && add_white_list4 $1 nat    TP_PREROUTING
 
 	$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
 
@@ -457,9 +482,9 @@ case $1 in
 	stop) stop;;
 	daemon) start; tail -f /var/log/clash.log;;
 	update) update_clash && update_geoip && update_subconverter && update_yacd;;
-  update_yacd) update_yacd;;
-  update_geoip) update_geoip;;
-  update_bin) update_clash && update_subconverter;;
-  update_premium) update_clash_premium && update_geoip && update_subconverter && update_yacd;;
+	update_yacd) update_yacd;;
+	update_geoip) update_geoip;;
+	update_bin) update_clash && update_subconverter;;
+	update_premium) update_clash_premium && update_geoip && update_subconverter && update_yacd;;
 	*) start;;
 esac

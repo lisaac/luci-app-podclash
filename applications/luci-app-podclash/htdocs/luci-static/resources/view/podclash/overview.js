@@ -462,6 +462,7 @@ return view.extend({
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_path', _('Path'))
+			so.placeholder='/clash/proxies/provider_name.yaml'
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers' })
 
@@ -470,6 +471,7 @@ return view.extend({
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_interval', _('Interval'))
+			so.placeholder='86400'
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.modalonly = true
@@ -851,6 +853,7 @@ return view.extend({
 			so.value("ipcidr", _("IPcidr"))
 
 			so = ss.option(form.Value, "path", _("Path"))
+			so.placeholder='/clash/rules/provider_name.yaml'
 			so = ss.option(form.Value, "url", _("URL"))
 			so = ss.option(form.Value, "interval", _("Interval(s)"))
 			so.datatype = "uinteger"
