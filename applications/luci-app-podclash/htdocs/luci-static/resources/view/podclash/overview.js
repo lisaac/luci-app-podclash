@@ -870,10 +870,15 @@ return view.extend({
 			so.readonly = true
 
 			so = ss.option(form.Value, "url", _("URL"))
+			so.modalonly = true
+
 			so = ss.option(form.Value, "interval", _("Interval(s)"))
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.default = 86400
+			so.cfgvalue = function (section_id) {
+				return podclash.data.get(section_id, "interval") && String(podclash.data.get(section_id, "interval"))
+			}
 
 			so = ss.option(form.Flag, '_rule-providers_enable', _('Enable'))
 			so.modalonly = false

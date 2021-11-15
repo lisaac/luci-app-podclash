@@ -1105,12 +1105,12 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 				if (typeof jsonConfig[sec] != 'object') return
 				const _sec = (sec === 'proxy-providers') && 'proxies' || sec
 				rv[sname][_sec] = [];
-				for (var k in jsonConfig[sec]) {
+				for (let k in jsonConfig[sec]) {
 					if (jsonConfig[sec][k] && jsonConfig[sec][k] != null) {
 						resolveConfig(jsonConfig[sec][k], k, sec)
 							.then(resolved_obj => {
-								rv[k] = resolved_obj
-								rv[sname][_sec].push(k)
+								rv[resolved_obj['.name']] = resolved_obj
+								rv[sname][_sec].push(resolved_obj['.name'])
 							})
 					}
 				}
@@ -1127,7 +1127,7 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	} else {
 		return Promise.reject(sname, needSectionType, rv)
 	}
-	if (PODCLASH_DATA.get(sname) && needSectionType != 'Configuration') {
+	// if (PODCLASH_DATA.get(sname) && needSectionType != 'Configuration') {
 		// clear codemirror object first
 		// PODCLASH_DATA.clear()
 		// if (JSON.stringify(PODCLASH_DATA.get(sname)) != JSON.stringify(jsonConfig)) {
@@ -1137,7 +1137,7 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 		// } else {
 		// 	PODCLASH_DATA.set(sname, jsonConfig)
 		// }
-	}
+	// }
 	return Promise.resolve(rv)
 }
 
