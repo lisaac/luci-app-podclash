@@ -966,7 +966,10 @@ return view.extend({
 		o.render = async function (sid) {
 			setTimeout(() => {
 				const target_logs = document.getElementsByClassName('cbi-map-tabbed')[0].children[2]
-
+				const options = {
+					attributes: true,
+					attributeFilter: ['data-tab-active']
+				}
 				const mb_logs = new MutationObserver(function (mutationRecord, observer) {
 					if (target_logs.getAttribute("data-tab-active") == "true") {
 						podclash.getPodLogs()

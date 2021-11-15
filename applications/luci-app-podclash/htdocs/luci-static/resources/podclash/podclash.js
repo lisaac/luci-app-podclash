@@ -1383,7 +1383,7 @@ const sendXHR = function (method, url, header, body, cb) {
 const getPodLogs = function () {
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
 	let logs = ''
-	sendXHR('GET', '/socket/containers/' + POD_NAME + '/logs?stdout=1&stderr=1', {
+	sendXHR('GET', '/socket/containers/' + POD_NAME + '/logs?stdout=1&stderr=1&tail=1000', {
 		"socket_path": '/var/run/docker.sock'
 	}, null, function () {
 		// let _length = 0, index = 0
