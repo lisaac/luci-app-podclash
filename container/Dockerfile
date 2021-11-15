@@ -2,7 +2,7 @@ FROM alpine
 
 ENV TZ=Asia/Shanghai
 
-COPY init.sh /
+COPY container/init.sh /
 
 #sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 # sed -i -e '/^http:\/\/.*\/main/h' -e'$G' -e '${s|\(^http://.*/\)main|\1testing|}' /etc/apk/repositories && \
