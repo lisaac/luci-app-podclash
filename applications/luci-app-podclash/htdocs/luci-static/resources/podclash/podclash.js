@@ -1322,7 +1322,7 @@ const applyConfig = async function (section_id) {
 				'Authorization': "Bearer " + CLASH_SECRET,
 			}, '{"path": "'+CLASH_CONFIG_PATH+'"}', function () {
 				if (this.status < 300) {
-					getClashInfo()
+					// getClashInfo()
 					alert("Apply configuration " + section_id + ' Success!')
 				} else {
 					// alert(JSON.parse(this.response).message)

@@ -23,6 +23,17 @@ return view.extend({
 	},
 	render: function (_data) {
 		setTimeout(() => {
+			const target_info = document.getElementsByClassName('cbi-map-tabbed')[0].children[0]
+			const options = {
+				attributes: true,
+				attributeFilter: ['data-tab-active']
+			}
+			const mb_info = new MutationObserver(function (mutationRecord, observer) {
+				if (target_info.getAttribute("data-tab-active") == "true") {
+					podclash.getClashInfo()
+				}
+			})
+			mb_info.observe(target_info, options)
 			podclash.getClashInfo()
 		}, 0);
 		podclash.data.init(_data)
@@ -195,9 +206,9 @@ return view.extend({
 					// TODO: upload to luci server
 					if (!noUpload) podclash.data.upload()
 					if (needClose) ui.hideModal()
-					setTimeout(() => {
-						podclash.getClashInfo()
-					}, 0);
+					// setTimeout(() => {
+					// 	podclash.getClashInfo()
+					// }, 0);
 					console.log(podclash.data.get())
 				})
 				// .then(ui.hideModal)
@@ -954,17 +965,14 @@ return view.extend({
 		o = s.option(form.Value, '_log', _('Logs'))
 		o.render = async function (sid) {
 			setTimeout(() => {
-				const target = document.getElementsByClassName('cbi-map-tabbed')[0].children[2]
-				const options = {
-					attributes: true,
-					attributeFilter: ['data-tab-active']
-				}
-				const mb = new MutationObserver(function (mutationRecord, observer) {
-					if (target.getAttribute("data-tab-active") == "true") {
+				const target_logs = document.getElementsByClassName('cbi-map-tabbed')[0].children[2]
+
+				const mb_logs = new MutationObserver(function (mutationRecord, observer) {
+					if (target_logs.getAttribute("data-tab-active") == "true") {
 						podclash.getPodLogs()
 					}
 				})
-				mb.observe(target, options)
+				mb_logs.observe(target_logs, options)
 			}, 0);
 			return E([], [
 				E('h3', { 'id': 'cbi-json-_logs' }, [_('Logs')]),
