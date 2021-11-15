@@ -1421,8 +1421,8 @@ const getClashInfo = async function () {
 						'_INFO_11clash_running_mode': res.mode.toUpperCase(),
 						// '_INFO_12clash_proxies_rules': '',
 						'_INFO_13clash_ports': 'Http: ' + res.port + ' | Socks: ' + res['socks-port'] + ' | Mixed: ' + res['mixed-port'],
-						'_INFO_22clash_dashboard': "<a href=http://" + podIP + ":" + CLASH_PORT + "/ui>http://" + podIP + ":" + CLASH_PORT + "/ui</a>",
-						'_INFO_21external_controller': "http://" + podIP + ":" + CLASH_PORT + "<br>Secret: " + CLASH_SECRET
+						'_INFO_22clash_dashboard': "<a target=\"_blank\" href=http://" + podIP + ":" + CLASH_PORT + "/ui>http://" + podIP + ":" + CLASH_PORT + "/ui</a>",
+						// '_INFO_21external_controller': "http://" + podIP + ":" + CLASH_PORT + "<br>Secret: " + CLASH_SECRET
 					}
 					for (var k in h) {
 						const id = 'cbi-json-' + k + '-value'

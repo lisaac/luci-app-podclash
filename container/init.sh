@@ -357,6 +357,23 @@ start() {
 stop() {
 	flush
 	stop_proxy_proc
+	handle_dns_onstop
+}
+
+dns_redir() {
+	$1 -t nat -N TP_PREROUTING
+	$1 -t nat -N TP_POSTROUTING
+	$1 -t nat -A TP_PREROUTING  -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j DNAT --to-destination 223.5.5.5
+	$1 -t nat -A TP_POSTROUTING -m addrtype ! --src-type LOCAL -p udp -d 223.5.5.5 --dport 53 -j MASQUERADE
+	$1 -t nat -A PREROUTING  -j TP_PREROUTING
+	$1 -t nat -A POSTROUTING -j TP_POSTROUTING
+}
+
+handle_dns_onstop() {
+	log_info 'Redir DNS request to 223.5.5.5'
+
+	is_true "$IPV4" && dns_redir "iptables"
+	is_true "$IPV6" && dns_redir "ip6tables"
 }
 
 update_clash() {
@@ -431,6 +448,8 @@ update_yacd() {
 	rm -fr ${YACD_PATH} &> /dev/null
 	unzip /tmp/yacd.zip -d $CLASH_PATH
 	mv $CLASH_PATH/yacd-gh-pages $YACD_PATH &> /dev/null
+	# add default config
+	sed -i "s|</body>|<script type=\"text/javascript\">localStorage[\"yacd.haishan.me\"] = \'{\"clashAPIConfigs\":[{\"baseURL\":\"http://\'+location.hostname+\':9090\",\"secret\":\"podclash\",\"addedAt\":0}]}\'</script></body>|" index.html
 	rm $YACD_PATH/CNAME &> /dev/null
 }
 

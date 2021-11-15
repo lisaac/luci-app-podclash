@@ -45,7 +45,8 @@ return view.extend({
 		_data["_INFO_12clash_proxies_rules"] = { key: _('Proxies & Rules'), value: 'Proxies: - | Rules: -', ".type": '_INFO', ".name": '_INFO_12clash_proxies_rules' }
 		_data["_INFO_13clash_ports"] = { key: _('Clash Ports'), value: '-', ".type": '_INFO', ".name": '_INFO_13clash_ports' }
 		_data["_INFO_22clash_dashboard"] = { key: _('Clash Dashboard'), value: '-', ".type": '_INFO', ".name": '_INFO_22clash_dashboard' }
-		_data["_INFO_21external_controller"] = { key: _('External Controller'), value: '-', ".type": '_INFO', ".name": '_INFO_21external_controller' }
+		// _data["_INFO_21external_controller"] = { key: _('External Controller'), value: '-', ".type": '_INFO', ".name": '_INFO_21external_controller' }
+		delete  _data["_INFO_21external_controller"]
 		_data["_logs"] = {}
 
 		var m, s, o, ss, so
@@ -933,8 +934,6 @@ return view.extend({
 			// so.editable = true
 			// so.cfgvalue = podclash.modalEnableFlagCFGValue
 			// so.write = podclash.modalEnableFlagWrite
-
-
 
 			// script
 			o = sConfig.taboption('script', form.Value, '_script', _('Script'))
