@@ -356,14 +356,14 @@ const handleAddAtTop = function (ev, name) {
 
 const handleClear = function (ev) {
 	const podclash_data = this.map.data.data
-	const isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
-	if (isRules) {
-		for (var x in podclash_data) {
-			if (podclash_data[x]['.type'] == this.sectiontype) {
-				podclash_data[x] = []
-			}
-		}
-	} else {
+	// const isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
+	// if (isRules) {
+	// 	for (var x in podclash_data) {
+	// 		if (podclash_data[x]['.type'] == this.sectiontype) {
+	// 			podclash_data[x] = []
+	// 		}
+	// 	}
+	// } else {
 		let pool = []
 		for (var x in podclash_data) {
 			if (podclash_data[x]["rule-providers"]) {
@@ -389,7 +389,7 @@ const handleClear = function (ev) {
 				}
 			}
 		}
-	}
+	// }
 	return this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section);
 }
 
@@ -585,16 +585,16 @@ const showAllRender = function (option_index, section_id, in_table) {
 
 const renderModalRowActions = function (section_id) {
 	var tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
-		using = false,
-		isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
+		using = false
+		// ,isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
 
-	if (!isRules) {
-		for (var k in this.map.data.data) {
-			if (this.map.data.data[k][this.sectiontype] && this.map.data.data[k][this.sectiontype].indexOf(section_id) >= 0) {
-				using = true;
-			}
-		}
-	}
+	// if (!isRules) {
+	// 	for (var k in this.map.data.data) {
+	// 		if (this.map.data.data[k][this.sectiontype] && this.map.data.data[k][this.sectiontype].indexOf(section_id) >= 0) {
+	// 			using = true;
+	// 		}
+	// 	}
+	// }
 	dom.content(tdEl.lastChild, [
 		E('button', {
 			'class': 'cbi-button cbi-button-positive',
@@ -602,7 +602,7 @@ const renderModalRowActions = function (section_id) {
 			'title': _('View / Edit')
 		}, _('View / Edit')),
 		tdEl.lastChild.firstChild,
-		isRules ? tdEl.lastChild.children[1] : '',
+		// isRules ? tdEl.lastChild.children[1] : '',
 		this.parentsection.showAll ? E('button', {
 			'class': 'cbi-button cbi-button-remove',
 			'click': removeConfig.bind(this, section_id),
@@ -1487,7 +1487,7 @@ const getClashInfo = async function () {
 					}
 					count -= 3
 					let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
-					val = val.replace(/(?<=Proxies: )[\d\-]+/, count)
+					val = val.replace(/Proxies: [\d\-]+/, 'Proxies: ' + count)
 
 					document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
 				}
@@ -1498,7 +1498,7 @@ const getClashInfo = async function () {
 				if (this.status < 300) {
 					const res = JSON.parse(this.response)
 					let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
-					val = val.replace(/(?<=Rules: )[\d\-]+/, String(res.rules.length))
+					val = val.replace(/Rules: [\d\-]+/, 'Rules: ' + String(res.rules.length))
 
 					document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
 				}
