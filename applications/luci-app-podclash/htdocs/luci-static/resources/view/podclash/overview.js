@@ -46,7 +46,7 @@ return view.extend({
 		_data["_INFO_13clash_ports"] = { key: _('Clash Ports'), value: '-', ".type": '_INFO', ".name": '_INFO_13clash_ports' }
 		_data["_INFO_22clash_dashboard"] = { key: _('Clash Dashboard'), value: '-', ".type": '_INFO', ".name": '_INFO_22clash_dashboard' }
 		// _data["_INFO_21external_controller"] = { key: _('External Controller'), value: '-', ".type": '_INFO', ".name": '_INFO_21external_controller' }
-		delete  _data["_INFO_21external_controller"]
+		delete _data["_INFO_21external_controller"]
 		_data["_logs"] = {}
 
 		var m, s, o, ss, so
@@ -227,7 +227,7 @@ return view.extend({
 				E('button', {
 					'class': 'cbi-button cbi-button-apply',
 					// 'click': podclash.applyConfig.bind(this, section_id),
-					'click': ui.createHandlerFn(this, function(ev) {
+					'click': ui.createHandlerFn(this, function (ev) {
 						podclash.applyConfig(section_id, ev);
 					}),
 					'title': using ? _('Reload') : _('Apply')
@@ -432,8 +432,8 @@ return view.extend({
 			}
 			so = ss.option(form.Value, 'server', _('Server'))
 			so.depends({ type: 'proxy-providers', "!reverse": true })
-			so.cfgvalue = function(section_id) {
-				if(podclash.data.get(section_id, 'type')!='proxy-providers'){
+			so.cfgvalue = function (section_id) {
+				if (podclash.data.get(section_id, 'type') != 'proxy-providers') {
 					return podclash.data.get(section_id, 'server')
 				} else {
 					return podclash.data.get(section_id, 'proxy-providers_url')
@@ -475,7 +475,7 @@ return view.extend({
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_path', _('Path'))
-			so.placeholder='/clash/proxies/provider_name.yaml'
+			so.placeholder = '/clash/proxies/provider_name.yaml'
 			so.readonly = true
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers' })
@@ -485,7 +485,7 @@ return view.extend({
 			so.depends({ type: 'proxy-providers' })
 
 			so = ss.option(form.Value, 'proxy-providers_interval', _('Interval'))
-			so.placeholder='3600'
+			so.placeholder = '3600'
 			so.default = 3600
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
@@ -877,7 +877,7 @@ return view.extend({
 			so.value("ipcidr", _("IPcidr"))
 
 			so = ss.option(form.Value, "path", _("Path"))
-			so.placeholder='/clash/rules/provider_name.yaml'
+			so.placeholder = '/clash/rules/provider_name.yaml'
 			so.modalonly = true
 			so.readonly = true
 

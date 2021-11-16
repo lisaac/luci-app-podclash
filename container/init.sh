@@ -223,9 +223,9 @@ start_iptables_tproxy_mode() {
 	$1 -t mangle -A TP_RULE -p udp -m conntrack --ctstate NEW -j MARK --set-mark $TPROXY_MARK
 	$1 -t mangle -A TP_RULE -j CONNMARK --save-mark
 	######################### TP_OUTPUT/TP_PREROUTING #########################
-	# $1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
-	# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
-	# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
+	$1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
+	$1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
+	$1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 
 	is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
 	
@@ -259,14 +259,14 @@ start_iptables_redirect_mode() {
 	}
 	
 	######################### TP_OUTPUT/TP_PREROUTING #########################
-	# $1 -t nat    -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
-	# $1 -t nat    -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
-	is_true "$IPV4" && add_white_list4 $1 nat    TP_PREROUTING
+	$1 -t nat    -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
+	$1 -t nat    -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
+	is_true "$IPV4" && add_white_list4 $1 nat TP_PREROUTING
 	$1 -t nat    -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
 
 	is_support_tproxy && {
-		# $1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
-		# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
+		$1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
+		$1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 		is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
 		$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
 			$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
@@ -325,17 +325,19 @@ start_clash() {
 	[ -f "${CLASH_CONFIG}" ] && {
 		log_info "\t- Using custom config.."
 		kill -9 $(pidof clash) &> /dev/null
-		# echo "" > /var/log/clash.log && chown $PROXY_PROCUSER /var/log/clash.log && chown -R $PROXY_PROCUSER  /clash && \
-		# su $PROXY_PROCUSER -s/bin/sh -c"${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &"
-		${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
-		# sleep 3
+		echo "" > /var/log/clash.log && chown $PROXY_PROCUSER /var/log/clash.log && chown -R $PROXY_PROCUSER  /clash && \
+		# capsh $PROXY_PROCUSER -s/bin/sh -c"${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &"
+		capsh --user="$PROXY_PROCUSER" --addamb="cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/config.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
+		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
+		sleep 3
 	}
 	[ ! -n "$(pidof clash)" ] && {
 		# custom config apply not success
 		log_info "\t- ERROR: Use custom config failed, Using default config.."
 		echo -e 'port: 7890\nmode: "direct"\nallow-lan: true\nredir-port: '${CLASH_REDIR_PORT}'\ntproxy-port: '${CLASH_TPROXY_PORT}'\nexternal-ui: "/clash/yacd/"\nexternal-controller: ":9090"\nsecret: "podclash"\ndns: { enhanced-mode: "redir-host", ipv6: false, fake-ip-range: "198.18.0.1/16", enable: true, fallback: [ "tls://dns.google", "https://cloudflare-dns.com/dns-query", "tls://1.1.1.1:853" ], fake-ip-filter: [ "*.lan", "localhost.ptlogin2.qq.com" ], listen: "0.0.0.0:53", default-nameserver: [ "114.114.114.114", "8.8.8.8" ], nameserver: [ "114.114.114.114", "223.5.5.5" ], fallback-filter: { geoip: true, ipcidr: [ "240.0.0.0/4" ] }, use-hosts: true }\nrules:\n  - MATCH,DIRECT' > /clash/default.yaml
 		kill -9 $(pidof clash) &> /dev/null
-		${CLASH_PATH}/clash -f ${CLASH_PATH}/default.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
+		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/default.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
+		capsh --user="$PROXY_PROCUSER" --addamb="cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/default.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
 	}
 }
 

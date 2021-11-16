@@ -364,31 +364,31 @@ const handleClear = function (ev) {
 	// 		}
 	// 	}
 	// } else {
-		let pool = []
-		for (var x in podclash_data) {
-			if (podclash_data[x]["rule-providers"]) {
-				pool = pool.concat(podclash_data[x]["rule-providers"])
-			}
-			if (podclash_data[x]["proxy-groups"]) {
-				pool = pool.concat(podclash_data[x]["proxy-groups"])
-			}
-			if (podclash_data[x]["proxies"]) {
-				pool = pool.concat(podclash_data[x]["proxies"])
-			} else if (podclash_data[x]["policy"]) {
-				pool = pool.concat(podclash_data[x]["policy"])
-				pool = pool.concat(podclash_data[x]["policy"])
-				if (podclash_data[x]['matcher'] && podclash_data[x]['type'] == 'RULE-SET') {
-					pool = pool.concat(podclash_data[x]['matcher'])
-				}
+	let pool = []
+	for (var x in podclash_data) {
+		if (podclash_data[x]["rule-providers"]) {
+			pool = pool.concat(podclash_data[x]["rule-providers"])
+		}
+		if (podclash_data[x]["proxy-groups"]) {
+			pool = pool.concat(podclash_data[x]["proxy-groups"])
+		}
+		if (podclash_data[x]["proxies"]) {
+			pool = pool.concat(podclash_data[x]["proxies"])
+		} else if (podclash_data[x]["policy"]) {
+			pool = pool.concat(podclash_data[x]["policy"])
+			pool = pool.concat(podclash_data[x]["policy"])
+			if (podclash_data[x]['matcher'] && podclash_data[x]['type'] == 'RULE-SET') {
+				pool = pool.concat(podclash_data[x]['matcher'])
 			}
 		}
-		for (var x in podclash_data) {
-			if (podclash_data[x]['.type'] == this.sectiontype) {
-				if (pool.indexOf(podclash_data[x]['.name']) < 0) {
-					podclash_data[x] = []
-				}
+	}
+	for (var x in podclash_data) {
+		if (podclash_data[x]['.type'] == this.sectiontype) {
+			if (pool.indexOf(podclash_data[x]['.name']) < 0) {
+				podclash_data[x] = []
 			}
 		}
+	}
 	// }
 	return this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section);
 }
@@ -586,7 +586,7 @@ const showAllRender = function (option_index, section_id, in_table) {
 const renderModalRowActions = function (section_id) {
 	var tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
 		using = false
-		// ,isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
+	// ,isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
 
 	// if (!isRules) {
 	// 	for (var k in this.map.data.data) {
@@ -914,7 +914,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 	let clone_config = function (cfg, key) {
 		for (k in cfg) {
 			if (cfg[k] == null) {
-				const dat = podclash_data[sid][key + '_' + k] || podclash_data[sid][k] 
+				const dat = podclash_data[sid][key + '_' + k] || podclash_data[sid][k]
 				// clone data
 				cfg[k] = dat && JSON.parse(JSON.stringify(dat))
 			} else if (typeof cfg[k] != 'string' && typeof cfg[k] != 'number' && typeof cfg[k] != 'boolean') {
@@ -996,7 +996,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 
 	if (needSectionType == 'Configuration') {
 		return isNullObj(part_config) ? undefined : part_config
-	}	else {
+	} else {
 		return part_config
 	}
 }
@@ -1134,15 +1134,15 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 		return Promise.reject(sname, needSectionType, rv)
 	}
 	// if (PODCLASH_DATA.get(sname) && needSectionType != 'Configuration') {
-		// clear codemirror object first
-		// PODCLASH_DATA.clear()
-		// if (JSON.stringify(PODCLASH_DATA.get(sname)) != JSON.stringify(jsonConfig)) {
-		// 	if (confirm(needSectionType + ': ' + sname + _(' is repeat with existing, do you wan\'t to overwrite??'))) {
-		// 		PODCLASH_DATA.set(sname, jsonConfig)
-		// 	}
-		// } else {
-		// 	PODCLASH_DATA.set(sname, jsonConfig)
-		// }
+	// clear codemirror object first
+	// PODCLASH_DATA.clear()
+	// if (JSON.stringify(PODCLASH_DATA.get(sname)) != JSON.stringify(jsonConfig)) {
+	// 	if (confirm(needSectionType + ': ' + sname + _(' is repeat with existing, do you wan\'t to overwrite??'))) {
+	// 		PODCLASH_DATA.set(sname, jsonConfig)
+	// 	}
+	// } else {
+	// 	PODCLASH_DATA.set(sname, jsonConfig)
+	// }
 	// }
 	return Promise.resolve(rv)
 }
