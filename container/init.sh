@@ -9,7 +9,12 @@ SET_SNAT='false'
 SET_SNAT6='false'
 IPV4='true'
 IPV6='false'
-TCP_TPROXY='true'
+
+is_support_tproxy() {
+	[ "$(lsmod | grep tproxy)" != "" ]
+}
+
+is_support_tproxy && TCP_TPROXY='true'
 PROXY_PROCUSER='daemon'
 
 CLASH_PATH="/clash"
@@ -43,6 +48,8 @@ is_ipv4_ipts() {
 is_ipv6_ipts() {
 	[ "$1" = 'ip6tables' ]
 }
+
+
 
 is_empty_iptschain() {
 	local ipts="$1" table="$2" chain="$3"
@@ -200,30 +207,18 @@ loopback_addr() {
 	is_ipv4_ipts $1 && echo "127.0.0.1" || echo "::1"
 }
 
-priv_addr_ipset_name() {
-	is_ipv4_ipts $1 && echo "privaddr" || echo "privaddr6"
-}
-
-ipset_family() {
-	is_ipv4_ipts $1 && echo "inet" || echo "inet6"
-}
-
 privaddr_array() {
 	is_ipv4_ipts $1 && echo ${IPV4_RESERVED_IPADDRS} || echo ${IPV6_RESERVED_IPADDRS}
 }
 
 start_iptables_tproxy_mode() {
-	local priv_addr_ipset_name=$(priv_addr_ipset_name $1)
-	ipset -X $priv_addr_ipset_name &>/dev/null
-	ipset -N $priv_addr_ipset_name hash:net family $(ipset_family $1) &>/dev/null
-	for privaddr in $(privaddr_array $1); do echo "-A $priv_addr_ipset_name $privaddr"; done | ipset -R -exist &>/dev/null
 	######################### TP_RULE (tcp and udp) #########################
 	$1 -t mangle -N TP_RULE
 	$1 -t mangle -A TP_RULE -j CONNMARK --restore-mark
 	$1 -t mangle -A TP_RULE -m mark --mark $TPROXY_MARK -j RETURN
 	$1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
+	for privaddr in $(privaddr_array $1); do $1 -t mangle -A TP_RULE -d $privaddr -j RETURN; done
 
-	$1 -t mangle -A TP_RULE -m set --match-set $priv_addr_ipset_name dst -j RETURN
 	$1 -t mangle -A TP_RULE -p tcp --syn -j MARK --set-mark $TPROXY_MARK
 	$1 -t mangle -A TP_RULE -p udp -m conntrack --ctstate NEW -j MARK --set-mark $TPROXY_MARK
 	$1 -t mangle -A TP_RULE -j CONNMARK --save-mark
@@ -246,39 +241,38 @@ start_iptables_tproxy_mode() {
 }
 
 start_iptables_redirect_mode() {
-	local priv_addr_ipset_name=$(priv_addr_ipset_name $1)
-	ipset -X $priv_addr_ipset_name &>/dev/null
-	ipset -N $priv_addr_ipset_name hash:net family $(ipset_family $1) &>/dev/null
-	for privaddr in $(privaddr_array $1); do echo "-A $priv_addr_ipset_name $privaddr"; done | ipset -R -exist &>/dev/null
 	######################### TP_RULE (for tcp) #########################
 	$1 -t nat -N TP_RULE
-	$1 -t nat -A TP_RULE -m set --match-set $priv_addr_ipset_name dst -j RETURN
+	for privaddr in $(privaddr_array $1); do $1 -t nat -A TP_RULE -d $privaddr -j RETURN; done
+
 	$1 -t nat -A TP_RULE -p tcp --syn -j DNAT --to $(loopback_addr $1):$CLASH_REDIR_PORT
 	######################### TP_RULE (for udp) #########################
-	$1 -t mangle -N TP_RULE
-	$1 -t mangle -A TP_RULE -j CONNMARK --restore-mark
-	$1 -t mangle -A TP_RULE -m mark --mark $TPROXY_MARK -j RETURN
-	$1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
+	is_support_tproxy && {
+		$1 -t mangle -N TP_RULE
+		$1 -t mangle -A TP_RULE -j CONNMARK --restore-mark
+		$1 -t mangle -A TP_RULE -m mark --mark $TPROXY_MARK -j RETURN
+		$1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
+		for privaddr in $(privaddr_array $1); do $1 -t mangle -A TP_RULE -d $privaddr -j RETURN; done
 
-	$1 -t mangle -A TP_RULE -m set --match-set $priv_addr_ipset_name dst -j RETURN
-	$1 -t mangle -A TP_RULE -p udp -m conntrack --ctstate NEW -j MARK --set-mark $TPROXY_MARK
-
-	$1 -t mangle -A TP_RULE -j CONNMARK --save-mark
+		$1 -t mangle -A TP_RULE -p udp -m conntrack --ctstate NEW -j MARK --set-mark $TPROXY_MARK
+		$1 -t mangle -A TP_RULE -j CONNMARK --save-mark
+	}
+	
 	######################### TP_OUTPUT/TP_PREROUTING #########################
 	# $1 -t nat    -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
-	# $1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
 	# $1 -t nat    -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
-	# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
-
-	is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
 	is_true "$IPV4" && add_white_list4 $1 nat    TP_PREROUTING
-
-	$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
-
 	$1 -t nat    -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
-	$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 
-	$1 -t mangle -A TP_PREROUTING -p udp -m mark --mark $TPROXY_MARK -j TPROXY --on-ip $(loopback_addr $1) --on-port $CLASH_TPROXY_PORT
+	is_support_tproxy && {
+		# $1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
+		# $1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
+		is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
+		$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
+			$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
+
+		$1 -t mangle -A TP_PREROUTING -p udp -m mark --mark $TPROXY_MARK -j TPROXY --on-ip $(loopback_addr $1) --on-port $CLASH_TPROXY_PORT
+	}
 }
 
 start_iptables() {
