@@ -1325,8 +1325,9 @@ function fileByte2Tar(tarFile, fileName, fileBytes) {
 
 const applyConfig = async function (section_id, ev) {
 	if (!PODCLASH_DATA.get(section_id) || PODCLASH_DATA.get(section_id)['.type'] != 'Configuration') return
+	ev.target.disabled = true
 	ev.target.innerHTML = _('Applying')
-	ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
+	ev.target.setAttribute('class', 'cbi-button cbi-button-up')
 	const yaml = jsyaml.dump(genConfig(PODCLASH_DATA.get(), section_id, 'Configuration'))
 	const yamlfile = new File([yaml], 'config.yaml', { type: "text/plan" })
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
@@ -1348,11 +1349,10 @@ const applyConfig = async function (section_id, ev) {
 			}, '{"path": "' + CLASH_CONFIG_PATH + '"}', function () {
 				if (this.status < 300) {
 					// getClashInfo()
+					ev.target.innerHTML = _('Succeed')
+					ev.target.setAttribute('class', 'cbi-button cbi-button-positive')
 					setTimeout(() => {
-						ev.target.innerHTML = _('Succeed')
-						ev.target.setAttribute('class', 'cbi-button cbi-button-save')
-					}, 500);
-					setTimeout(() => {
+						ev.target.disabled = false
 						ev.target.innerHTML = _('Apply')
 						ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
 					}, 3000);
@@ -1360,10 +1360,12 @@ const applyConfig = async function (section_id, ev) {
 					// alert(JSON.parse(this.response).message)
 					ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + JSON.parse(this.response).message)
 					setTimeout(() => {
+						ev.target.disabled = false
 						ev.target.innerHTML = _('Failed')
-						ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-negative')
 					}, 500);
 					setTimeout(() => {
+						ev.target.disabled = false
 						ev.target.innerHTML = _('Apply')
 						ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
 					}, 3000);
@@ -1372,10 +1374,12 @@ const applyConfig = async function (section_id, ev) {
 		} else {
 			ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + this.response)
 			setTimeout(() => {
+				ev.target.disabled = false
 				ev.target.innerHTML = _('Failed')
-				ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
+				ev.target.setAttribute('class', 'cbi-button cbi-button-negative')
 			}, 500);
 			setTimeout(() => {
+				ev.target.disabled = false
 				ev.target.innerHTML = _('Apply')
 				ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
 			}, 3000);
@@ -1505,7 +1509,10 @@ const _getClashInfo = function (podIP) {
 	}, null, function () {
 		if (this.status < 300) {
 			const res = JSON.parse(this.response)
-			document.getElementById('cbi-json-_INFO_10clash_version-value').children[0].innerHTML = res.version
+			document.getElementById('cbi-json-_INFO_10clash_version-value').children[0].innerHTML = (res.version.match(/^v/) ? _('Community Ver: ') : _('Premium Ver: ')) + res.version
+			document.getElementById('btn_switch_clash_ver').innerHTML = (res.version.match(/^v/) ? _('Switch to Premium') : _('Switch to Community'))
+			document.getElementById('btn_switch_clash_ver').disabled = false
+			document.getElementById('btn_update_clash').disabled = false
 		}
 	})
 }
@@ -1595,6 +1602,65 @@ const getClashInfo = async function () {
 	}
 }
 
+const updatePodClash = function (ev) {
+	const rawInnerHTML = ev.target.innerHTML
+	const isSwitch = rawInnerHTML.match(/Switch/) ? true : false
+	const isPremium = document.getElementById('cbi-json-_INFO_10clash_version-value').children[0].innerHTML.match(/Premium/) ? true : false
+	const isNeedPremium = isSwitch ? !isPremium : isPremium
+
+	document.getElementById('btn_switch_clash_ver').disabled = true
+	document.getElementById('btn_update_clash').disabled = true
+	ev.target.innerHTML = isSwitch ? _('Switching..') : _('Updating..')
+	ev.target.setAttribute('class', 'cbi-button cbi-button-up')
+
+	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
+	sendXHR('POST', "/socket/containers/" + POD_NAME + "/exec", {
+		"socket_path": '/var/run/docker.sock',
+		"Content-Type": 'application/json'
+	}, JSON.stringify({
+		"AttachStdin": false,
+		"AttachStdout": true,
+		"AttachStderr": true,
+		"Tty": false,
+		"Cmd": ["/init.sh", 'update' + (isNeedPremium ? '_premium' : '')]
+	}), function () {
+		if (this.status < 300) {
+			const res = JSON.parse(this.response)
+			if (res.Id) {
+				sendXHR('POST', "/socket/exec/" + res.Id + "/start", {
+					"socket_path": '/var/run/docker.sock',
+					"Content-Type": 'application/json'
+				}, '{}', function () {
+					if (this.status < 300) {
+						// let res = this.response
+						ev.target.innerHTML = _('Update succed!!')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-positive')
+						setTimeout(() => {
+							ev.target.innerHTML = _(rawInnerHTML)
+							ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+							document.getElementById('btn_switch_clash_ver').disabled = false
+							document.getElementById('btn_update_clash').disabled = false
+							getClashInfo()
+						}, 3000);
+					} else {
+						ui.addNotification(null, _("Unknow ERROR!"))
+						document.getElementById('btn_switch_clash_ver').disabled = false
+						document.getElementById('btn_update_clash').disabled = false
+						ev.target.innerHTML = _(rawInnerHTML)
+						ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+					}
+				})
+			}
+		} else {
+			ui.addNotification(null, _("Unknow ERROR!"))
+			document.getElementById('btn_switch_clash_ver').disabled = false
+			document.getElementById('btn_update_clash').disabled = false
+			ev.target.innerHTML = _(rawInnerHTML)
+			ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+		}
+	})
+}
+
 return baseclass.extend({
 	data: PODCLASH_DATA,
 	handleAddAtTop: handleAddAtTop,
@@ -1620,6 +1686,7 @@ return baseclass.extend({
 	getClashInfo: getClashInfo,
 	getPodNetworkInfo: getPodNetworkInfo,
 	getPodLogs: getPodLogs,
+	updatePodClash: updatePodClash,
 
 	proxy_types: proxy_types,
 	ciphers: ciphers,

@@ -214,9 +214,7 @@ return view.extend({
 				E('button', {
 					'class': 'cbi-button cbi-button-apply',
 					// 'click': podclash.applyConfig.bind(this, section_id),
-					'click': ui.createHandlerFn(this, function (ev) {
-						podclash.applyConfig(section_id, ev);
-					}),
+					'click':  (ev) => {	podclash.applyConfig(section_id, ev) },
 					'title': using ? _('Reload') : _('Apply')
 				}, using ? _('Reload') : _('Apply')),
 				tdEl.lastChild.firstChild,
@@ -1019,15 +1017,15 @@ return view.extend({
 			const throttle = function (fn, wait) {
 				let previous = 0;
 				return function () {
-						let now = new Date().getTime();
-						if (now - previous > wait) {
-								fn.apply(this, arguments);
-								previous = now;
-						}
+					let now = new Date().getTime();
+					if (now - previous > wait) {
+						fn.apply(this, arguments);
+						previous = now;
+					}
 				}
 			}
 			const tabs = document.getElementsByClassName('cbi-tabmenu')[0].children
-			for (let tab of tabs){
+			for (let tab of tabs) {
 				if (tab.getAttribute('data-tab') == '_INFO') {
 					tab.addEventListener('click', throttle(function () {
 						podclash.getClashInfo()
@@ -1039,9 +1037,17 @@ return view.extend({
 					}, 2000))
 				}
 			}
-
+			// add update/switch
+			const ver_td = document.getElementById('cbi-json-_INFO_10clash_version-value')
+			const update_btn = E('button', { 'id': 'btn_update_clash', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { podclash.updatePodClash(ev) } }, [_('Update')])
+			const switch_btn = E('button', { 'id': 'btn_switch_clash_ver', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { podclash.updatePodClash(ev) } }, [_('Switch')])
+			ver_td.style['display'] = 'inline-block'
+			ver_td.parentElement.appendChild(E('span', {}, '&nbsp;&nbsp;'))
+			ver_td.parentElement.appendChild(update_btn)
+			ver_td.parentElement.appendChild(E('span', {}, '&nbsp;'))
+			ver_td.parentElement.appendChild(switch_btn)
 		}, 0);
-	
+
 		return m.render()
 	},
 

@@ -418,8 +418,9 @@ update_clash() {
 	clash_url="https://github.com/Dreamacro/clash/releases/download/${clash_latest_ver}/clash-linux-${clash_arch}-${clash_latest_ver}.gz"
 	rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
 	wget ${clash_url} -O ${CLASH_PATH}/clash.gz && \
-	cd ${CLASH_PATH} && rm -fr clash &> /dev/null
-	gunzip clash.gz && chmod +x clash
+	cd ${CLASH_PATH}
+	# rm -fr clash &> /dev/null
+	gunzip -f clash.gz && chmod +x clash
 	rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
 }
 
@@ -437,8 +438,9 @@ update_clash_premium() {
 	clash_premium_url="https://github.com/Dreamacro/clash/releases/download/premium/clash-linux-${clash_arch}-${clash_premium_latest_ver}.gz"
 	rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
 	wget ${clash_premium_url} -O ${CLASH_PATH}/clash.gz && \
-	cd ${CLASH_PATH} && rm -fr clash &> /dev/null
-	gunzip clash.gz && chmod +x clash
+	cd ${CLASH_PATH}
+	# rm -fr clash &> /dev/null
+	gunzip -f clash.gz && chmod +x clash
 	rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
 }
 
@@ -446,7 +448,7 @@ update_geoip() {
 	echo "$(date +%Y-%m-%d\ %T) Updating GEOIP.."
 	geoip_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/maxmind-geoip/releases/latest | grep 'tag_name' | cut -d\" -f4)"
 	geoip_url="https://github.com/Dreamacro/maxmind-geoip/releases/download/${geoip_latest_ver}/Country.mmdb"
-	rm ${CLASH_PATH}/Country.mmdb &> /dev/null
+	# rm ${CLASH_PATH}/Country.mmdb &> /dev/null
 	wget ${geoip_url} -O ${CLASH_PATH}/Country.mmdb
 }
 
@@ -463,8 +465,8 @@ update_subconverter() {
 	mkdir -p ${SUBCONVERTER_PATH}
 	rm -fr /tmp/subconverter.tar.gz &> /dev/null
 	wget ${subconverter_url} -O /tmp/subconverter.tar.gz
-	rm -fr ${SUBCONVERTER_PATH}/*
-	tar zxf /tmp/subconverter.tar.gz -C /
+	# rm -fr ${SUBCONVERTER_PATH}/*
+	tar zxf --overwrite /tmp/subconverter.tar.gz --overwrite -C /
 	rm -fr /tmp/subconverter.tar.gz &> /dev/null
 }
 
@@ -473,8 +475,8 @@ update_yacd() {
 	ycad_url="https://github.com/haishanh/yacd/archive/gh-pages.zip"
 	rm -fr /tmp/yacd.zip &> /dev/null
 	wget ${ycad_url} -O /tmp/yacd.zip
-	rm -fr ${YACD_PATH} &> /dev/null
-	unzip /tmp/yacd.zip -d $CLASH_PATH
+	# rm -fr ${YACD_PATH} &> /dev/null
+	unzip -o /tmp/yacd.zip -d $CLASH_PATH
 	mv $CLASH_PATH/yacd-gh-pages $YACD_PATH &> /dev/null
 	# add default config
 	sed -i "s|</body>|<script type=\"text/javascript\">localStorage[\"yacd.haishan.me\"] = \'{\"clashAPIConfigs\":[{\"baseURL\":\"http://\'+location.hostname+\':9090\",\"secret\":\"podclash\",\"addedAt\":0}]}\'</script></body>|" $YACD_PATH/index.html
@@ -484,10 +486,10 @@ update_yacd() {
 case $1 in
 	stop) stop;;
 	daemon) start; tail -f /var/log/clash.log;;
-	update) update_clash && update_geoip && update_subconverter && update_yacd;;
+	update) update_clash && update_geoip && update_subconverter && update_yacd; start;;
 	update_yacd) update_yacd;;
 	update_geoip) update_geoip;;
 	update_bin) update_clash && update_subconverter;;
-	update_premium) update_clash_premium && update_geoip && update_subconverter && update_yacd;;
+	update_premium) update_clash_premium && update_geoip && update_subconverter && update_yacd; start;;
 	*) start;;
 esac
