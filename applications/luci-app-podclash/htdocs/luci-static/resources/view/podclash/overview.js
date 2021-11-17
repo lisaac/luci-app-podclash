@@ -22,22 +22,7 @@ return view.extend({
 			.catch(() => { return {} })
 	},
 	render: function (_data) {
-		setTimeout(() => {
-			const target_info = document.getElementsByClassName('cbi-map-tabbed')[0].children[0]
-			const options = {
-				attributes: true,
-				attributeFilter: ['data-tab-active']
-			}
-			const mb_info = new MutationObserver(function (mutationRecord, observer) {
-				if (target_info.getAttribute("data-tab-active") == "true") {
-					podclash.getClashInfo()
-				}
-			})
-			mb_info.observe(target_info, options)
-			podclash.getClashInfo()
-		}, 0);
 		podclash.data.init(_data)
-
 		_data["_INFO_00pod_name"] = { key: _('POD Name'), value: '-', ".type": '_INFO', ".name": '_INFO_00pod_name' }
 		_data["_INFO_01pod_ip"] = { key: _('IP'), value: '-', ".type": '_INFO', ".name": '_INFO_01pod_ip' }
 		_data["_INFO_10clash_version"] = { key: _('Clash Version'), value: '-', ".type": '_INFO', ".name": '_INFO_10clash_version' }
@@ -46,7 +31,8 @@ return view.extend({
 		_data["_INFO_13clash_ports"] = { key: _('Clash Ports'), value: '-', ".type": '_INFO', ".name": '_INFO_13clash_ports' }
 		_data["_INFO_22clash_dashboard"] = { key: _('Clash Dashboard'), value: '-', ".type": '_INFO', ".name": '_INFO_22clash_dashboard' }
 		// _data["_INFO_21external_controller"] = { key: _('External Controller'), value: '-', ".type": '_INFO', ".name": '_INFO_21external_controller' }
-		delete _data["_INFO_21external_controller"]
+		_data["_INFO_31public_ip"] = { key: _('Public IP'), value: '-', ".type": '_INFO', ".name": '_INFO_31public_ip' }
+		_data["_INFO_31connect_check"] = { key: _('Connect Check'), value: '-', ".type": '_INFO', ".name": '_INFO_31connect_check' }
 		_data["_logs"] = {}
 
 		var m, s, o, ss, so
@@ -110,6 +96,7 @@ return view.extend({
 		s.anonymous = true
 		o = s.option(form.DummyValue, 'key', _("Info"))
 		o = s.option(form.DummyValue, 'value', null)
+
 
 		// configurations
 		s = m.section(form.GridSection, 'Configuration', _("Configuration"), null)
@@ -994,21 +981,21 @@ return view.extend({
 
 		// logs
 		s = m.section(form.NamedSection, '_logs', _("Logs"), null)
-		o = s.option(form.Value, '_log', _('Logs'))
+		o = s.option(form.Value, '_logs', _('Logs'))
 		o.render = async function (sid) {
-			setTimeout(() => {
-				const target_logs = document.getElementsByClassName('cbi-map-tabbed')[0].children[2]
-				const options = {
-					attributes: true,
-					attributeFilter: ['data-tab-active']
-				}
-				const mb_logs = new MutationObserver(function (mutationRecord, observer) {
-					if (target_logs.getAttribute("data-tab-active") == "true") {
-						podclash.getPodLogs()
-					}
-				})
-				mb_logs.observe(target_logs, options)
-			}, 0);
+			// setTimeout(() => {
+			// 	const target_logs = document.getElementsByClassName('cbi-map-tabbed')[0].children[2]
+			// 	const options = {
+			// 		attributes: true,
+			// 		attributeFilter: ['data-tab-active']
+			// 	}
+			// 	const mb_logs = new MutationObserver(function (mutationRecord, observer) {
+			// 		if (target_logs.getAttribute("data-tab-active") == "true") {
+			// 			podclash.getPodLogs()
+			// 		}
+			// 	})
+			// 	mb_logs.observe(target_logs, options)
+			// }, 0);
 			return E([], [
 				E('h3', { 'id': 'cbi-json-_logs' }, [_('Logs')]),
 				E('div', {
@@ -1026,6 +1013,35 @@ return view.extend({
 			]);
 		}
 
+		// add Event Listener for tabs, tab click reload clash info and logs
+		setTimeout(() => {
+			podclash.getClashInfo()
+			const throttle = function (fn, wait) {
+				let previous = 0;
+				return function () {
+						let now = new Date().getTime();
+						if (now - previous > wait) {
+								fn.apply(this, arguments);
+								previous = now;
+						}
+				}
+			}
+			const tabs = document.getElementsByClassName('cbi-tabmenu')[0].children
+			for (let tab of tabs){
+				if (tab.getAttribute('data-tab') == '_INFO') {
+					tab.addEventListener('click', throttle(function () {
+						podclash.getClashInfo()
+					}, 5000))
+				}
+				else if (tab.getAttribute('data-tab') == _('Logs')) {
+					tab.addEventListener('click', throttle(function () {
+						podclash.getPodLogs()
+					}, 2000))
+				}
+			}
+
+		}, 0);
+	
 		return m.render()
 	},
 

@@ -9,6 +9,7 @@ SET_SNAT='false'
 SET_SNAT6='false'
 IPV4='true'
 IPV6='false'
+DNS_WHILE_STOPED='223.5.5.5'
 
 is_support_tproxy() {
 	[ "$(lsmod | grep tproxy)" != "" ]
@@ -383,15 +384,19 @@ stop() {
 
 dns_redir() {
 	$1 -t nat -N TP_PREROUTING
+	$1 -t nat -N TP_OUTPUT
 	$1 -t nat -N TP_POSTROUTING
-	$1 -t nat -A TP_PREROUTING  -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j DNAT --to-destination 223.5.5.5
-	$1 -t nat -A TP_POSTROUTING -m addrtype ! --src-type LOCAL -p udp -d 223.5.5.5 --dport 53 -j MASQUERADE
+	$1 -t nat -A TP_PREROUTING  -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j DNAT --to-destination $DNS_WHILE_STOPED
+	# $1 -t nat -A TP_POSTROUTING -m addrtype ! --src-type LOCAL -p udp -d $DNS_WHILE_STOPED --dport 53 -j MASQUERADE
+	$1 -t nat -A TP_OUTPUT -p udp --dport 53 -j DNAT --to-destination $DNS_WHILE_STOPED
+	$1 -t nat -A TP_POSTROUTING -p udp -d $DNS_WHILE_STOPED --dport 53 -j MASQUERADE
+	$1 -t nat -A OUTPUT  -j TP_OUTPUT
 	$1 -t nat -A PREROUTING  -j TP_PREROUTING
 	$1 -t nat -A POSTROUTING -j TP_POSTROUTING
 }
 
 handle_dns_onstop() {
-	log_info 'Redir DNS request to 223.5.5.5'
+	log_info 'Redir DNS request..'
 
 	is_true "$IPV4" && dns_redir "iptables"
 	is_true "$IPV6" && dns_redir "ip6tables"
