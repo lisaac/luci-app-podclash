@@ -18,7 +18,8 @@ const CLASH_RULE_PROVIDERS_PATH = '/clash/rules/'
 const POD_NAME = 'podclash'
 const CLASH_PORT = '9090'
 const CLASH_SECRET = 'podclash'
-const CREATE_POD_CLI = 'docker run -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 -p 7894:7894 --restart unless-stopped --name podclash lisaac/podclash'
+const CREATE_POD_CLI = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 -p 7894:7894 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
+
 const FONT_PERFIX_RED = '<font style="font-weight: bold; color: #ff0000;">'
 const FONT_PERFIX_GREEN = '<font style="font-weight: bold; color: #00aa00;">'
 const FONT_SUFFIX = '</font>'
@@ -1333,7 +1334,7 @@ const applyConfig = async function (section_id, ev) {
 	const tarfile = await file2Tar(tar.Globals.Instance.tarFile, yamlfile)
 	let [podIP, podRunning] = await getPodIP(POD_NAME)
 	if (!podRunning) {
-		ui.addNotification(null, _("Apply configuration ")  + section_id + _(" ERROR: no container or container not running!"))
+		ui.addNotification(null, _("Apply configuration ") + section_id + _(" ERROR: no container or container not running!"))
 		return
 	}
 
@@ -1357,7 +1358,7 @@ const applyConfig = async function (section_id, ev) {
 					}, 3000);
 				} else {
 					// alert(JSON.parse(this.response).message)
-					ui.addNotification(null, _("Apply configuration ")  + section_id + " ERROR: " + JSON.parse(this.response).message)
+					ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + JSON.parse(this.response).message)
 					setTimeout(() => {
 						ev.target.innerHTML = _('Failed')
 						ev.target.setAttribute('class', 'cbi-button cbi-button-remove')
@@ -1434,15 +1435,6 @@ const getPodLogs = function () {
 	sendXHR('GET', '/socket/containers/' + POD_NAME + '/logs?stdout=1&stderr=1&tail=1000', {
 		"socket_path": '/var/run/docker.sock'
 	}, null, function () {
-		// let _length = 0, index = 0
-		// while (index < this.response.length) {
-		// 	_length = this.response[index + 4].charCodeAt(0) * 256 * 256 * 256 + this.response[index + 5].charCodeAt(0) * 256 * 256 + this.response[index + 6].charCodeAt(0) * 256 + this.response[index + 7].charCodeAt(0)
-		// 	if (index + 8 + _length > this.response.length) {
-		// 		break;
-		// 	}
-		// 	logs += this.response.substr(index + 8, _length)
-		// 	index += (_length + 8)
-		// }
 		if (this.status >= 300) return
 		const buf = this.response.split('\n')
 		buf.forEach(line => {
@@ -1475,11 +1467,11 @@ const _getClashInfo = function (podIP) {
 			}
 		} else {
 			ui.addNotification(null, _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!'))
-			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML =  _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
+			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
 		}
-	}, function(){
+	}, function () {
 		ui.addNotification(null, _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!'))
-		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML =  _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
+		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
 	})
 
 	sendXHR('GET', "http://" + podIP + ":" + CLASH_PORT + "/proxies", {
@@ -1574,10 +1566,32 @@ const getClashInfo = async function () {
 		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Please start Container: ' + '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>' + ' first!')
 	} else {
 		//no container
-		const cmd = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
-		ui.addNotification(null, '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + cmd + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>')
-
-		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + cmd + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
+		const filters = { "driver": ["macvlan"] }
+		sendXHR('GET', '/socket/networks?filters=' + encodeURIComponent(JSON.stringify(filters)), {
+			"socket_path": '/var/run/docker.sock'
+		}, null, function () {
+			if (this.status < 300) {
+				const res = JSON.parse(this.response)
+				if (res.length > 0) {
+					const maclvn_network_name = res[0].Name
+					const create_pod_cli = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai --network " + maclvn_network_name + " --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
+					ui.addNotification(null, '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + create_pod_cli + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>')
+					document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + create_pod_cli + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
+				} else {
+					// no macvlan network
+					ui.addNotification(null, '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + CREATE_POD_CLI + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>')
+					document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + CREATE_POD_CLI + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
+				}
+			} else {
+				// server error
+				ui.addNotification(null, '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + CREATE_POD_CLI + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>')
+				document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + CREATE_POD_CLI + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
+			}
+		}, function () {
+			// request error
+			ui.addNotification(null, '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + CREATE_POD_CLI + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>')
+			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + CREATE_POD_CLI + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
+		})
 	}
 }
 
