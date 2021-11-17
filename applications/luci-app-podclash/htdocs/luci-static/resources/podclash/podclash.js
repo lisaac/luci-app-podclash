@@ -1346,7 +1346,7 @@ const applyConfig = async function (section_id, ev) {
 				'Authorization': "Bearer " + CLASH_SECRET,
 			}, '{"path": "' + CLASH_CONFIG_PATH + '"}', function () {
 				if (this.status < 300) {
-					getClashInfo()
+					// getClashInfo()
 					setTimeout(() => {
 						ev.target.innerHTML = _('Succeed')
 						ev.target.setAttribute('class', 'cbi-button cbi-button-save')
@@ -1487,13 +1487,14 @@ const _getClashInfo = function (podIP) {
 	}, null, function () {
 		if (this.status < 300) {
 			const res = JSON.parse(this.response)
+
 			let count = 0
 			for (var k in res.proxies) {
 				count++
 			}
 			count -= 3
 			let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
-			val = val.replace(/Proxies: [\d\-]+/, 'Proxies: <b>' + count + '</b>')
+			val = val.replace(/Proxies: [\<\>b]*[\d\-]+[\<\/\>b]*/, 'Proxies: <b>' + count + '</b>')
 			document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
 		}
 	})
@@ -1503,7 +1504,7 @@ const _getClashInfo = function (podIP) {
 		if (this.status < 300) {
 			const res = JSON.parse(this.response)
 			let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
-			val = val.replace(/Rules: [\d\-]+/, 'Rules: <b>' + String(res.rules.length) + '</b>')
+			val = val.replace(/Rules: [\<\>b]*[\d\-]+[\<\/\>b]*/, 'Rules: <b>' + String(res.rules.length) + '</b>')
 			document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
 		}
 	})
@@ -1540,16 +1541,16 @@ const getPodNetworkInfo = function () {
 					res = JSON.parse(res.substring(res.indexOf('{'), res.lastIndexOf(',')) + '}')
 					const ip_item = document.getElementById('cbi-json-_INFO_31public_ip-value')
 					ip_item.children[0].innerHTML =
-						_('IPIP.NET: ') + (res.ip_from_ipip && FONT_PERFIX_RED + res.ip_from_ipip + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
-						_('Taobao: ') + (res.ip_from_taobao && FONT_PERFIX_RED + res.ip_from_taobao + FONT_SUFFIX || FONT_TIMEOUT) + ' <br/> ' +
-						_('IP.SB: ') + (res.ip_from_sb && FONT_PERFIX_RED + res.ip_from_sb + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
-						_('Google: ') + (res.ip_from_google && FONT_PERFIX_RED + res.ip_from_google + FONT_SUFFIX || FONT_TIMEOUT)
+						_('IPIP.NET: ') + (res.ip_from_ipip && FONT_PERFIX_GREEN + res.ip_from_ipip + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
+						_('Taobao: ') + (res.ip_from_taobao && FONT_PERFIX_GREEN + res.ip_from_taobao + FONT_SUFFIX || FONT_TIMEOUT) + ' <br/> ' +
+						_('IP.SB: ') + (res.ip_from_sb && FONT_PERFIX_GREEN + res.ip_from_sb + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
+						_('Google: ') + (res.ip_from_google && FONT_PERFIX_GREEN + res.ip_from_google + FONT_SUFFIX || FONT_TIMEOUT)
 					const timeout_item = document.getElementById('cbi-json-_INFO_31connect_check-value')
 					timeout_item.children[0].innerHTML =
-						_('Baidu: ') + (res.access_baidu_code == '200' && FONT_PERFIX_RED + ((res.access_baidu_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
-						_('Taobao: ') + (res.access_taobao_code == '200' && FONT_PERFIX_RED + ((res.access_taobao_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' <br/> ' +
-						_('Github: ') + (res.access_github_code == '200' && FONT_PERFIX_RED + ((res.access_github_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
-						_('Google: ') + (res.access_google_code == '204' && FONT_PERFIX_RED + ((res.access_google_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT)
+						_('Baidu: ') + (res.access_baidu_code == '200' && FONT_PERFIX_GREEN + ((res.access_baidu_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
+						_('Taobao: ') + (res.access_taobao_code == '200' && FONT_PERFIX_GREEN + ((res.access_taobao_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' <br/> ' +
+						_('Github: ') + (res.access_github_code == '200' && FONT_PERFIX_GREEN + ((res.access_github_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
+						_('Google: ') + (res.access_google_code == '204' && FONT_PERFIX_GREEN + ((res.access_google_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT)
 				})
 			}
 		} else {
