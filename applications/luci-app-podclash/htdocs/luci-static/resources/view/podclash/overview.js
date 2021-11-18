@@ -35,7 +35,7 @@ return view.extend({
 		_data["_INFO_31connect_check"] = { key: _('Connect Check'), value: '-', ".type": '_INFO', ".name": '_INFO_31connect_check' }
 		_data["_logs"] = {}
 
-		var m, s, o, ss, so
+		let m, s, o, ss, so
 		m = new form.JSONMap({}, _('POD Clash'));
 		m.tabbed = true
 		m.data.data = _data
@@ -63,8 +63,8 @@ return view.extend({
 		}
 
 		m.data.add = function (config, sectiontype, sectionname, index) {
-			var num_sections_type = 0, next_index = 0;
-			for (var name in this.data) {
+			let num_sections_type = 0, next_index = 0;
+			for (let name in this.data) {
 				if (this.data[name]['.type'] == sectiontype) {
 					num_sections_type += (this.data[name]['.type'] == sectiontype);
 					next_index = Math.max(next_index, this.data[name]['.index']);
@@ -74,7 +74,7 @@ return view.extend({
 				}
 			}
 
-			var section_id = sectionname || sectiontype + num_sections_type;
+			let section_id = sectionname || sectiontype + num_sections_type;
 			if (!this.data.hasOwnProperty(section_id)) {
 				// clone form default config
 				if (sectiontype === 'Configuration')
@@ -108,13 +108,13 @@ return view.extend({
 			if (!this.addremove)
 				return E([]);
 
-			var createEl = E('div', { 'class': 'cbi-section-create' }),
+			let createEl = E('div', { 'class': 'cbi-section-create' }),
 				btn_title = this.titleFn('addbtntitle');
 
 			if (extra_class != null)
 				createEl.classList.add(extra_class);
 
-			var nameEl = E('input', {
+			let nameEl = E('input', {
 				'type': 'text',
 				'class': 'cbi-section-create-name',
 				'disabled': this.map.readonly || null
@@ -146,7 +146,7 @@ return view.extend({
 
 			if (this.map.readonly !== true) {
 				ui.addValidator(nameEl, 'uciname', true, function (v) {
-					var buttonAdd = createEl.querySelector('.cbi-section-create > .cbi-button-add');
+					let buttonAdd = createEl.querySelector('.cbi-section-create > .cbi-button-add');
 					// check for duplicate names
 					if (v !== '' && !podclash.data.get(v)) {
 						buttonAdd.disabled = null;
@@ -203,7 +203,7 @@ return view.extend({
 				.catch(function () { });
 		}
 		s.renderRowActions = function (section_id) {
-			var tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
+			let tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
 				using = false;
 			dom.content(tdEl.lastChild, [
 				E('button', {
@@ -396,6 +396,7 @@ return view.extend({
 			o = sConfig.taboption('proxies', form.SectionValue, 'proxies', form.GridSection, 'proxies', _('Proxies'))
 			ss = o.subsection
 			ss.parentsection = sConfig
+			ss.nodescriptions = true
 			ss.anonymous = false
 			ss.addremove = true
 			ss.modaltitle = function (section_id) {
@@ -412,7 +413,7 @@ return view.extend({
 			ss.viewConfig = podclash.viewConfig
 
 			so = ss.option(form.ListValue, 'type', _('Type'))
-			for (var k in podclash.proxy_types) {
+			for (let k in podclash.proxy_types) {
 				so.value(k, podclash.proxy_types[k])
 			}
 			so = ss.option(form.Value, 'server', _('Server'))
@@ -469,7 +470,7 @@ return view.extend({
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers' })
 
-			so = ss.option(form.Value, 'proxy-providers_interval', _('Interval'))
+			so = ss.option(form.Value, 'proxy-providers_interval', _('Interval'), _('Auto update interval'))
 			so.placeholder = '3600'
 			so.default = 3600
 			so.datatype = "uinteger"
@@ -485,7 +486,7 @@ return view.extend({
 			so.modalonly = true
 			so.depends({ type: 'proxy-providers' })
 
-			so = ss.option(form.Value, 'proxy-providers_health-check_url', _('Health check url'))
+			so = ss.option(form.Value, 'proxy-providers_health-check_url', _('Health check url'), _('The url using for health check'))
 			so.placeholder = 'http://www.gstatic.com/generate_204'
 			so.default = 'http://www.gstatic.com/generate_204'
 			so.modalonly = true
@@ -757,6 +758,7 @@ return view.extend({
 			// proxy groups
 			o = sConfig.taboption('proxies', form.SectionValue, 'proxy-groups', form.GridSection, 'proxy-groups', _('Proxy Groups'))
 			ss = o.subsection
+			ss.nodescriptions = true
 			ss.anonymous = false
 			ss.addremove = true
 			ss.modaltitle = function (section_id) {
@@ -781,7 +783,7 @@ return view.extend({
 			so = ss.option(form.DynamicList, 'proxies', _('Proxies'))
 			so.value("DIRECT", "DIRECT")
 			so.value("REJECT", "REJECT")
-			for (var x in podclash.data.get()) {
+			for (let x in podclash.data.get()) {
 				if (podclash.data.get(x, '.type') == 'proxies') {
 					if (podclash.data.get(x, 'type') == 'proxy-providers') {
 						so.value(podclash.data.get(x, '.name'), 'Provider: ' + podclash.data.get(x, '.name'))
@@ -792,24 +794,30 @@ return view.extend({
 					so.value(podclash.data.get(x, '.name'), 'Group: ' + podclash.data.get(x, '.name'))
 				}
 			}
-			so = ss.option(form.Value, 'url', _('Url'))
+			so = ss.option(form.Value, 'url', _('Url'), _('A url will be used for benchmarking the latency. Recommand http.'))
+			so.placeholder = 'http://www.gstatic.com/generate_204'
+			so.default = 'http://www.gstatic.com/generate_204'
 			so.modalonly = true
 			so.depends('type', 'url-test')
 			so.depends('type', 'fallback')
 			so.depends('type', 'load-balance')
-			so = ss.option(form.Value, 'interval', _('interval'))
+			
+			so = ss.option(form.Value, 'interval', _('Interval'), _('Retest the latency after several seconds.'))
+			so.placeholder = '300'
+			so.default = '300'
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.modalonly = true
 			so.depends('type', 'url-test')
 			so.depends('type', 'fallback')
 			so.depends('type', 'load-balance')
-			so = ss.option(form.Value, 'tolerance', _('Tolerance'))
+			so = ss.option(form.Value, 'tolerance', _('Tolerance'), _('Clash will only change proxy when the latency of the new Proxy is further below the tolerance plus the current delay of the old one. The default value is 0ms, and not necessary.'))
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.modalonly = true
 			so.depends('type', 'url-test')
-			so = ss.option(form.Flag, 'lazy', _('Lazy'))
+			so = ss.option(form.Flag, 'lazy', _('Lazy'), _('when lazy open, proxy group and proxy provider that have not been used during the cycle will not be speed tested.'))
+			so.default = true
 			so.DATATYPE = "boolean"
 			so.modalonly = true
 			so.enabled = true
@@ -817,7 +825,8 @@ return view.extend({
 			so.depends('type', 'url-test')
 			so.depends('type', 'fallback')
 			so.depends('type', 'load-balance')
-			so = ss.option(form.Flag, 'disable-udp', _('Disable UDP'))
+			so = ss.option(form.Flag, 'disable-udp', _('Disable UDP'), _('disable udp traffic on this group.'))
+			so.default = false
 			so.DATATYPE = "boolean"
 			so.enabled = true
 			so.disabled = false
@@ -832,6 +841,7 @@ return view.extend({
 			o = sConfig.taboption('rules', form.SectionValue, 'rule-providers', form.GridSection, 'rule-providers', _('Rule Providers'))
 			ss = o.subsection
 			ss.parentsection = sConfig
+			ss.nodescriptions = true
 			ss.anonymous = false
 			ss.addremove = true
 
@@ -855,7 +865,7 @@ return view.extend({
 			so.value("http", _("HTTP"))
 			so.value("file", _("File"))
 
-			so = ss.option(form.ListValue, "behavior", _("Behavior"))
+			so = ss.option(form.ListValue, "behavior", _("Behavior"), _('Type of rules, it can be a domain, ipcidr or classical, domain means all things in it must be a domains, ipcidr means all things in it must be a ip cidrs, classical means it is a rules liked rule-provider.'))
 			so.default = "classical"
 			so.value("classical", _("Classical"))
 			so.value("domain", _("Domain"))
@@ -867,7 +877,7 @@ return view.extend({
 			so.readonly = true
 
 			so = ss.option(form.Value, "url", _("URL"))
-			so = ss.option(form.Value, "interval", _("Interval(s)"))
+			so = ss.option(form.Value, "interval", _("Interval"), _('Auto update interval'))
 			so.datatype = "uinteger"
 			so.DATATYPE = "number"
 			so.default = 86400
@@ -934,7 +944,7 @@ return view.extend({
 			// so = ss.option(form.Value, "policy", _("Proxies (Groups)"))
 			// so.value("DIRECT", "DIRECT")
 			// so.value("REJECT", "REJECT")
-			// for (var x in podclash.data.get()) {
+			// for (let x in podclash.data.get()) {
 			// 	if (podclash.data.get(x, '.type') == 'proxies') {
 			// 		if (podclash.data.get(x, 'type') == 'proxy-providers'){
 			// 			so.value(podclash.data.get(x, '.name'), 'Provider: ' + podclash.data.get(x, '.name'))

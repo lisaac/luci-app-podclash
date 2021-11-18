@@ -34,7 +34,7 @@ const PODCLASH_DATA = function () {
 		// set('config1', 'proxies', 'type', 'vmess')
 		set: function () {
 			(function (obj, keys) {
-				var value = keys.pop(),
+				let value = keys.pop(),
 					final = keys.pop(), k
 				while (k = keys.shift()) {
 					if (typeof obj[k] === 'undefined')
@@ -61,7 +61,7 @@ const PODCLASH_DATA = function () {
 		clear: function () {
 			const dat = this.get.apply(this, [].slice.call(arguments))
 			const clr = function (obj) {
-				for (var k in obj) {
+				for (let k in obj) {
 					if (k.match(/^__.+/)) {
 						delete obj[k]
 					} else if (typeof obj[k] === 'object') {
@@ -343,7 +343,7 @@ const ssr_protocols = ["origin", "auth_sha1_v4", "auth_aes128_md5",
 	"auth_aes128_sha1", "auth_chain_a", "auth_chain_b"]
 
 const isNullObj = function (obj) {
-	for (var x in obj) {
+	for (let x in obj) {
 		if (obj[x] != undefined) {
 			return false
 		}
@@ -352,7 +352,7 @@ const isNullObj = function (obj) {
 }
 
 const handleAddAtTop = function (ev, name) {
-	var config_name = this.uciconfig || this.map.config,
+	let config_name = this.uciconfig || this.map.config,
 		section_id = this.map.data.add(config_name, this.sectiontype, name, 0);
 
 	this.addedSection = section_id;
@@ -363,14 +363,14 @@ const handleClear = function (ev) {
 	const podclash_data = this.map.data.data
 	// const isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
 	// if (isRules) {
-	// 	for (var x in podclash_data) {
+	// 	for (let x in podclash_data) {
 	// 		if (podclash_data[x]['.type'] == this.sectiontype) {
 	// 			podclash_data[x] = []
 	// 		}
 	// 	}
 	// } else {
 	let pool = []
-	for (var x in podclash_data) {
+	for (let x in podclash_data) {
 		if (podclash_data[x]["rule-providers"]) {
 			pool = pool.concat(podclash_data[x]["rule-providers"])
 		}
@@ -387,7 +387,7 @@ const handleClear = function (ev) {
 			}
 		}
 	}
-	for (var x in podclash_data) {
+	for (let x in podclash_data) {
 		if (podclash_data[x]['.type'] == this.sectiontype) {
 			if (pool.indexOf(podclash_data[x]['.name']) < 0) {
 				podclash_data[x] = []
@@ -403,7 +403,7 @@ const renderSectionAdd = function (extra_class) {
 		return E([]);
 	let isEnabled = false
 
-	var createEl = E('div', { 'class': 'cbi-section-create' }),
+	let createEl = E('div', { 'class': 'cbi-section-create' }),
 		btn_title = this.titleFn('addbtntitle');
 
 	if (extra_class != null)
@@ -456,7 +456,7 @@ const renderSectionAdd = function (extra_class) {
 		])
 	}
 	else {
-		var nameEl = E('input', {
+		let nameEl = E('input', {
 			'type': 'text',
 			'class': 'cbi-section-create-name',
 			'disabled': this.map.readonly || null
@@ -508,7 +508,7 @@ const renderSectionAdd = function (extra_class) {
 
 		if (this.map.readonly !== true) {
 			ui.addValidator(nameEl, 'uciname', true, function (v) {
-				var buttonAdd = createEl.querySelector('.cbi-section-create > .cbi-button-add');
+				let buttonAdd = createEl.querySelector('.cbi-section-create > .cbi-button-add');
 				// check for duplicate names
 				if (v !== '' && !PODCLASH_DATA.get(v)) {
 					buttonAdd.disabled = null;
@@ -589,12 +589,12 @@ const showAllRender = function (option_index, section_id, in_table) {
 }
 
 const renderModalRowActions = function (section_id) {
-	var tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
+	let tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
 		using = false
 	// ,isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
 
 	// if (!isRules) {
-	// 	for (var k in this.map.data.data) {
+	// 	for (let k in this.map.data.data) {
 	// 		if (this.map.data.data[k][this.sectiontype] && this.map.data.data[k][this.sectiontype].indexOf(section_id) >= 0) {
 	// 			using = true;
 	// 		}
@@ -667,7 +667,7 @@ const renderMoreOptionsModal = function (section_id, ev) {
 		// open new sub modal dialog, so we need to save the current modal dialog first
 		this.parentsection.parentmap.children[1].handleModalSave(this.map, this.parentsection.section, true)
 	}
-	var parent = this.map,
+	let parent = this.map,
 		title = parent.title,
 		name = null,
 		m = new form.JSONMap({}, null, null),
@@ -707,15 +707,15 @@ const renderMoreOptionsModal = function (section_id, ev) {
 	else if (!this.anonymous)
 		title = '%s - %s'.format(parent.title, section_id);
 
-	for (var i = 0; i < this.children.length; i++) {
-		var o1 = this.children[i];
+	for (let i = 0; i < this.children.length; i++) {
+		let o1 = this.children[i];
 
 		if (o1.modalonly === false)
 			continue;
 
-		var o2 = s.option(o1.constructor, o1.option, o1.title, o1.description);
+		let o2 = s.option(o1.constructor, o1.option, o1.title, o1.description);
 
-		for (var k in o1) {
+		for (let k in o1) {
 			if (!o1.hasOwnProperty(k))
 				continue;
 
@@ -811,7 +811,7 @@ const genCodeMirror = function (el, lang, customHint) {
 	CM.setOption("extraKeys", {
 		"Tab": function (cm) {
 			if (cm.somethingSelected()) {
-				var sel = CM.getSelection("\n");
+				let sel = CM.getSelection("\n");
 				// Indent only if there are multiple lines selected, or if the selection spans a full line
 				if (sel.length > 0 && (sel.indexOf("\n") > -1 || sel.length === cm.getLine(cm.getCursor().line).length)) {
 					cm.indentSelection("add");
@@ -850,7 +850,7 @@ const genRulesCodeMirror = function (el, section_id) {
 		[],
 		['DIRECT', 'REJECT']
 	]
-	for (var x in PODCLASH_DATA.get()) {
+	for (let x in PODCLASH_DATA.get()) {
 		if (PODCLASH_DATA.get(x, '.type') == 'proxies') {
 			hints[2].push({ text: PODCLASH_DATA.get(x, '.name'), displayText: 'fdfdf' })
 		} else if (PODCLASH_DATA.get(x, '.type') == 'proxy-groups') {
@@ -863,18 +863,18 @@ const genRulesCodeMirror = function (el, section_id) {
 		return new Promise(function (accept) {
 			setTimeout(function () {
 				const list = []
-				var cursor = cm.getCursor(), line = cm.getLine(cursor.line)
-				var start = cursor.ch, end = cursor.ch
+				let cursor = cm.getCursor(), line = cm.getLine(cursor.line)
+				let start = cursor.ch, end = cursor.ch
 				// match ^ - 
 				if (line.match(/^\s+\-\s/)) {
 					while (start && /\w/.test(line.charAt(start - 1)))
 						--start
 					while (end < line.length && /\w/.test(line.charAt(end)))
 						++end
-					var word = line.slice(start, end)
+					let word = line.slice(start, end)
 					const fields = line.split(',')
 					const field = fields.length > 2 && 2 || fields.length - 1
-					for (var j = 0; j < hints[field].length; j++) {
+					for (let j = 0; j < hints[field].length; j++) {
 						if (hints[field][j].toString().toUpperCase().indexOf(word.toUpperCase()) != -1) {
 							list.push(hints[field][j])
 						}
@@ -980,7 +980,7 @@ const genConfig = function (podclash_data, sid, needSectionType) {
 					if (podclash_data[podclash_data[sid][sec][k]] && podclash_data[podclash_data[sid][sec][k]]['type'] == 'proxy-providers' || sec == 'rule-providers') {
 						const _sec = (sec == 'rule-providers') && 'rule-providers' || 'proxy-providers'
 						if (part_config[_sec] && part_config[_sec].constructor === Object) {
-							for (var l in json_cfg) {
+							for (let l in json_cfg) {
 								part_config[_sec][l] = json_cfg[l]
 							}
 						} else {
@@ -1017,8 +1017,8 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	// 	"use strict";
 	// 	if (Object(data) !== data || Array.isArray(data))
 	// 		return data;
-	// 	var result = {}, cur, prop, idx, last, temp;
-	// 	for (var p in data) {
+	// 	let result = {}, cur, prop, idx, last, temp;
+	// 	for (let p in data) {
 	// 		cur = result, prop = "", last = 0;
 	// 		do {
 	// 			idx = p.indexOf("_", last);
@@ -1032,19 +1032,19 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	// 	return result[""];
 	// }
 	const flatten = function (cfg, p) {
-		var result = {};
+		let result = {};
 		function recurse(cur, prop) {
 
 			if (Object(cur) !== cur || Array.isArray(cur)) {
 				result[prop] = cur;
 				// } else if (Array.isArray(cur)) {
-				// 	for (var i = 0, l = cur.length; i < l; i++)
+				// 	for (let i = 0, l = cur.length; i < l; i++)
 				// 		recurse(cur[i], prop ? prop + "_" + i : "" + i);
 				// 	if (l == 0)
 				// 		result[prop] = [];
 			} else {
-				var isEmpty = true;
-				for (var p in cur) {
+				let isEmpty = true;
+				for (let p in cur) {
 					isEmpty = false;
 					if (p == 'server' || p == 'port' || p == 'type' || p == 'udp' || p == 'tls' || p == 'skip-cert-verify')
 						recurse(cur[p], p);
@@ -1060,32 +1060,35 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 	}
 	switch (needSectionType) {
 		case 'proxies':
-			// has type means not proxy-providers
-			if (jsonConfig['type']) {
+			// inline edit, we need differentiate bwtten proxy and proxy-provider:
+			// have both "type" and "name" means it's proxy, proxy-provider comes with {provider-name:{xxxxxx}}
+			if (jsonConfig['type'] && jsonConfig['name']) {
 				// proxy
 				rv = flatten(jsonConfig, jsonConfig['type'])
 			} else {
 				// proxy-providers
 				rv = flatten(jsonConfig[sname], 'proxy-providers')
 				rv['type'] = 'proxy-providers'
+				rv['proxy-providers_type'] = jsonConfig[sname]['type']
 				rv['proxy-providers_path'] = CLASH_PROXY_PROVIDERS_PATH + sname + '.yaml'
 			}
 			break;
 		case 'proxy-providers':
-			if (jsonConfig['type']) {
-				rv = flatten(jsonConfig, jsonConfig['type'])
-			} else {
-				rv = flatten(Object.values(jsonConfig)[0], Object.values(jsonConfig)[0]['type'])
-			}
+			rv = flatten(jsonConfig, 'proxy-providers')
+			rv['type'] = 'proxy-providers'
+			rv['proxy-providers_type'] = jsonConfig['type']
+			rv['proxy-providers_path'] = CLASH_PROXY_PROVIDERS_PATH + sname + '.yaml'
 			break;
-		// case 'proxy-groups':
+		case 'proxy-groups':
+			rv = jsonConfig
+			break;
 		case 'rule-providers':
 			if (jsonConfig['type']) {
 				rv = jsonConfig
 			} else {
 				rv = Object.values(jsonConfig)[0]
 			}
-			rv['rule-providers_path'] = CLASH_RULE_PROVIDERS_PATH + sname + '.yaml'
+			rv['path'] = CLASH_RULE_PROVIDERS_PATH + sname + '.yaml'
 			break;
 		case 'Configuration':
 			if (isSectionofConfig) {
@@ -1273,7 +1276,7 @@ async function file2Tar(tarFile, fileToLoad) {
 	if (!fileToLoad) return
 	function file2Byte(file) {
 		return new Promise((resolve, reject) => {
-			var fileReader = new FileReader();
+			let fileReader = new FileReader();
 			fileReader.onerror = () => {
 				fileReader.abort();
 				reject(new DOMException("Problem parsing input file."));
@@ -1290,8 +1293,8 @@ async function file2Tar(tarFile, fileToLoad) {
 
 function fileByte2Tar(tarFile, fileName, fileBytes) {
 	if (!tarFile) tarFile = tar.TarFile.create(fileName)
-	var tarHeader = tar.TarFileEntryHeader.default();
-	var tarFileEntryHeader = new tar.TarFileEntryHeader
+	let tarHeader = tar.TarFileEntryHeader.default();
+	let tarFileEntryHeader = new tar.TarFileEntryHeader
 		(
 			// tar.ByteHelper.bytesToStringUTF8(fileName),
 			fileName,
@@ -1313,7 +1316,7 @@ function fileByte2Tar(tarFile, fileName, fileBytes) {
 		);
 
 	tarFileEntryHeader.checksumCalculate();
-	var entryForFileToAdd = new tar.TarFileEntry
+	let entryForFileToAdd = new tar.TarFileEntry
 		(
 			tarFileEntryHeader,
 			fileBytes
@@ -1411,7 +1414,7 @@ const getPodIP = function (pod_name) {
 		if (res.status < 300) {
 			const r = JSON.parse(res.responseText)
 			if (r.NetworkSettings && r.NetworkSettings.Networks) {
-				for (var i in r.NetworkSettings.Networks) {
+				for (let i in r.NetworkSettings.Networks) {
 					// if bridge network using host ip
 					return [i == 'bridge' ? location.hostname : (r.NetworkSettings.Networks[i].IPAddress || r.NetworkSettings.Networks[i].IPAMConfig.IPv4Address), r.State.Running]
 				}
@@ -1425,7 +1428,7 @@ const getPodIP = function (pod_name) {
 const sendXHR = function (method, url, header, body, cb, cb_err) {
 	let xhr = new XMLHttpRequest()
 	xhr.open(method, url, true)
-	for (var k in header) {
+	for (let k in header) {
 		xhr.setRequestHeader(k, header[k])
 	}
 	xhr.onload = cb
@@ -1465,7 +1468,7 @@ const _getClashInfo = function (podIP) {
 				'_INFO_22clash_dashboard': "<a target=\"_blank\" href=http://" + podIP + ":" + CLASH_PORT + "/ui>http://" + podIP + ":" + CLASH_PORT + "/ui</a>",
 				// '_INFO_21external_controller': "http://" + podIP + ":" + CLASH_PORT + "<br>Secret: " + CLASH_SECRET
 			}
-			for (var k in h) {
+			for (let k in h) {
 				const id = 'cbi-json-' + k + '-value'
 				document.getElementById(id).children[0].innerHTML = h[k]
 			}
@@ -1485,7 +1488,7 @@ const _getClashInfo = function (podIP) {
 			const res = JSON.parse(this.response)
 
 			let count = 0
-			for (var k in res.proxies) {
+			for (let k in res.proxies) {
 				count++
 			}
 			count -= 3
