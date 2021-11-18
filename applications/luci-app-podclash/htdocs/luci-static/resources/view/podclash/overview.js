@@ -195,7 +195,6 @@ return view.extend({
 					if (!noUpload) podclash.data.upload()
 					if (needClose) ui.hideModal()
 					// setTimeout(() => {
-					// 	podclash.getClashInfo()
 					// }, 0);
 					console.log(podclash.data.get())
 				})
@@ -214,7 +213,35 @@ return view.extend({
 				E('button', {
 					'class': 'cbi-button cbi-button-apply',
 					// 'click': podclash.applyConfig.bind(this, section_id),
-					'click':  (ev) => {	podclash.applyConfig(section_id, ev) },
+					'click': (ev) => {
+						ev.target.disabled = true
+						ev.target.innerHTML = _('Applying')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-up')
+						podclash.applyConfig(section_id, ev)
+							.then(res => {
+								ev.target.innerHTML = _('Succeed')
+								ev.target.setAttribute('class', 'cbi-button cbi-button-positive')
+								setTimeout(() => {
+									ev.target.disabled = false
+									ev.target.innerHTML = _('Apply')
+									ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+								}, 2000);
+							})
+							.catch(err => {
+								console.log('Apply configuration' + section_id + ' error: ',err)
+								ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + JSON.parse(err.responseText).message)
+								setTimeout(() => {
+									ev.target.disabled = false
+									ev.target.innerHTML = _('Failed')
+									ev.target.setAttribute('class', 'cbi-button cbi-button-negative')
+								}, 500);
+								setTimeout(() => {
+									ev.target.disabled = false
+									ev.target.innerHTML = _('Apply')
+									ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
+								}, 2000);
+							})
+					},
 					'title': using ? _('Reload') : _('Apply')
 				}, using ? _('Reload') : _('Apply')),
 				tdEl.lastChild.firstChild,
@@ -801,7 +828,7 @@ return view.extend({
 			so.depends('type', 'url-test')
 			so.depends('type', 'fallback')
 			so.depends('type', 'load-balance')
-			
+
 			so = ss.option(form.Value, 'interval', _('Interval'), _('Retest the latency after several seconds.'))
 			so.placeholder = '300'
 			so.default = '300'
@@ -1044,6 +1071,14 @@ return view.extend({
 				else if (tab.getAttribute('data-tab') == _('Logs')) {
 					tab.addEventListener('click', throttle(function () {
 						podclash.getPodLogs()
+							.then(logs => {
+								document.getElementById('clashlog').rows = logs.lines + 1
+								document.getElementById('clashlog').innerHTML = logs.logs
+							})
+							.catch(err => {
+								console.log('Get Logs ERROR: ',err)
+								ui.addNotification(null, _("Get Logs ERROR !"))
+							})
 					}, 2000))
 				}
 			}
