@@ -1086,8 +1086,8 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 		case 'proxy-groups':
 			rv = flatten(jsonConfig)
 			// handle provider
-			if(rv['use'] && rv['use'] instanceof Array){
-				if (! (rv['proxies'] instanceof Array)) rv['proxies'] = []
+			if (rv['use'] && rv['use'] instanceof Array) {
+				if (!(rv['proxies'] instanceof Array)) rv['proxies'] = []
 				rv['use'].forEach(provider => {
 					rv['proxies'].push(provider)
 				})
@@ -1428,7 +1428,13 @@ const removeConfig = function (section_id) {
 
 		this.map.data.remove(config_name, section_id);
 		this.map.save(this.map, section_id)
-			.then(PODCLASH_DATA.upload())
+			.then(() => {
+				PODCLASH_DATA.upload()
+				setTimeout(() => {
+					addDomListener()
+					addUpdateButton()
+				}, 0)
+			})
 	}
 }
 

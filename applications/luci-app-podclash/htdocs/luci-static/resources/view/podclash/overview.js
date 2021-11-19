@@ -230,7 +230,7 @@ return view.extend({
 								}, 2000);
 							})
 							.catch(err => {
-								console.log('Apply configuration' + section_id + ' error: ',err)
+								console.log('Apply configuration' + section_id + ' error: ', err)
 								ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + JSON.parse(err.responseText).message)
 								setTimeout(() => {
 									ev.target.disabled = false
@@ -1055,7 +1055,7 @@ return view.extend({
 			podclash.getClashInfo()
 			podclash.addDomListener()
 			podclash.addUpdateButton()
-		})
+		}, 0)
 
 		return m.render()
 	},
