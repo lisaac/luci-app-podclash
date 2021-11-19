@@ -812,17 +812,38 @@ return view.extend({
 			so = ss.option(form.DynamicList, 'proxies', _('Proxies'))
 			so.value("DIRECT", "DIRECT")
 			so.value("REJECT", "REJECT")
-			for (let x in podclash.data.get()) {
-				if (podclash.data.get(x, '.type') == 'proxies') {
-					if (podclash.data.get(x, 'type') == 'proxy-providers') {
-						so.value(podclash.data.get(x, '.name'), 'Provider: ' + podclash.data.get(x, '.name'))
-					} else {
-						so.value(podclash.data.get(x, '.name'), 'Proxy: ' + podclash.data.get(x, '.name'))
-					}
-				} else if (podclash.data.get(x, '.type') == 'proxy-groups') {
-					so.value(podclash.data.get(x, '.name'), 'Group: ' + podclash.data.get(x, '.name'))
+			so.parentsection = sConfig
+			so.renderWidget = function(section_id, option_index, cfgvalue) {
+				let value = (cfgvalue != null) ? cfgvalue : this.default,
+						choices = this.transformChoices(),
+						items = L.toArray(value);
+				
+				const _parent_sid = this.parentsection.section
+				const _self_sid = this.section.section
+				if(Array.isArray(podclash.data.get(_parent_sid, 'proxies'))){
+					podclash.data.get(_parent_sid, 'proxies').forEach(p => {
+						this.value('Proxy: ' + p, p)
+					})
 				}
+				if(Array.isArray(podclash.data.get(_parent_sid, 'proxy-groups'))){
+					podclash.data.get(_parent_sid, 'proxy-groups').forEach(p => {
+						if (p != _self_sid) this.value('Proxy-Group: ' + p, p)
+					})
+				}
+		
+				let widget = new ui.DynamicList(items, choices, {
+					id: this.cbid(section_id),
+					sort: this.keylist,
+					optional: this.optional || this.rmempty,
+					datatype: this.datatype,
+					placeholder: this.placeholder,
+					validate: L.bind(this.validate, this, section_id),
+					disabled: (this.readonly != null) ? this.readonly : this.map.readonly
+				});
+		
+				return widget.render();
 			}
+
 			so = ss.option(form.Value, 'url', _('Url'), _('A url will be used for benchmarking the latency. Recommand http.'))
 			so.placeholder = 'http://www.gstatic.com/generate_204'
 			so.default = 'http://www.gstatic.com/generate_204'

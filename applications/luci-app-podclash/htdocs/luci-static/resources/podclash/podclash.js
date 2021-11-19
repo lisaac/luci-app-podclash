@@ -363,41 +363,40 @@ const handleAddAtTop = function (ev, name) {
 
 const handleClear = function (ev) {
 	const podclash_data = this.map.data.data
-	// const isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
-	// if (isRules) {
-	// 	for (let x in podclash_data) {
-	// 		if (podclash_data[x]['.type'] == this.sectiontype) {
-	// 			podclash_data[x] = []
-	// 		}
-	// 	}
-	// } else {
-	let pool = []
+
+	const buffToObj = function (arr, obj) {
+		arr.forEach(item => {
+			obj[item] = true
+		})
+	}
+	let usingPool = {}
 	for (let x in podclash_data) {
-		if (podclash_data[x]["rule-providers"]) {
-			pool = pool.concat(podclash_data[x]["rule-providers"])
+		if (podclash_data[x]['.type'] != 'Configuration') continue
+		if (Array.isArray(podclash_data[x]["proxies"])) {
+			buffToObj(podclash_data[x]["proxies"], usingPool)
 		}
-		if (podclash_data[x]["proxy-groups"]) {
-			pool = pool.concat(podclash_data[x]["proxy-groups"])
+		if (Array.isArray(podclash_data[x]["proxy-groups"])) {
+			buffToObj(podclash_data[x]["proxies"], usingPool)
 		}
-		if (podclash_data[x]["proxies"]) {
-			pool = pool.concat(podclash_data[x]["proxies"])
-		} else if (podclash_data[x]["policy"]) {
-			pool = pool.concat(podclash_data[x]["policy"])
-			pool = pool.concat(podclash_data[x]["policy"])
-			if (podclash_data[x]['matcher'] && podclash_data[x]['type'] == 'RULE-SET') {
-				pool = pool.concat(podclash_data[x]['matcher'])
-			}
+		if (Array.isArray(podclash_data[x]["rule-providers"])) {
+			buffToObj(podclash_data[x]["proxies"], usingPool)
+		}
+
+		if (Array.isArray(podclash_data[x]["rules"])) {
+			podclash_data[x]["rules"].forEach(rule => {
+				const p = rule.substring(rule.lastIndexOf(',') + 1)
+				if (p != 'DIRECT' && p != 'REJECT') usingPool[p] = true
+			})
 		}
 	}
 	for (let x in podclash_data) {
 		if (podclash_data[x]['.type'] == this.sectiontype) {
-			if (pool.indexOf(podclash_data[x]['.name']) < 0) {
-				podclash_data[x] = []
+			if (!usingPool[podclash_data[x]['.name']]) {
+				delete podclash_data[x]
 			}
 		}
 	}
-	// }
-	return this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section);
+	this.map.reset()
 }
 
 const renderSectionAdd = function (extra_class) {
@@ -593,15 +592,13 @@ const showAllRender = function (option_index, section_id, in_table) {
 const renderModalRowActions = function (section_id) {
 	let tdEl = this.super('renderRowActions', [section_id, _('Edit')]),
 		using = false
-	// ,isRules = this.sectiontype.match(/^_rules_.+/) ? true : false
 
-	// if (!isRules) {
-	// 	for (let k in this.map.data.data) {
-	// 		if (this.map.data.data[k][this.sectiontype] && this.map.data.data[k][this.sectiontype].indexOf(section_id) >= 0) {
-	// 			using = true;
-	// 		}
-	// 	}
-	// }
+	for (let k in this.map.data.data) {
+		if (this.map.data.data[k]['.type'] != 'Configuration') continue
+		if (this.map.data.data[k][this.sectiontype] && this.map.data.data[k][this.sectiontype].indexOf(section_id) >= 0) {
+			using = true;
+		}
+	}
 	dom.content(tdEl.lastChild, [
 		E('button', {
 			'class': 'cbi-button cbi-button-positive',
@@ -850,15 +847,11 @@ const genRulesCodeMirror = function (el, section_id) {
 	const hints = [
 		['DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN', 'SRC-IP-CIDR', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'DST-PORT', 'SRT-PORT', 'MATCH'],
 		[],
-		['DIRECT', 'REJECT']
+		[]
 	]
-	for (let x in PODCLASH_DATA.get()) {
-		if (PODCLASH_DATA.get(x, '.type') == 'proxies') {
-			hints[2].push({ text: PODCLASH_DATA.get(x, '.name'), displayText: 'fdfdf' })
-		} else if (PODCLASH_DATA.get(x, '.type') == 'proxy-groups') {
-			hints[2].unshift(PODCLASH_DATA.get(x, '.name'))
-		}
-	}
+	hints[2] = hints[2].concat(PODCLASH_DATA.get(section_id, 'proxy-groups') || [])
+	hints[2] = hints[2].concat(PODCLASH_DATA.get(section_id, 'proxies') || [])
+	hints[2] = hints[2].concat(['DIRECT', 'REJECT'])
 
 	const rule_yaml = jsyaml.dump({ rules: PODCLASH_DATA.get(section_id, 'rules') || ['MATCH,DIRECT'] }, { flowLevel: -1 })
 	const customHint = function (cm, option) {
@@ -875,7 +868,11 @@ const genRulesCodeMirror = function (el, section_id) {
 						++end
 					let word = line.slice(start, end)
 					const fields = line.split(',')
-					const field = fields.length > 2 && 2 || fields.length - 1
+					let field = fields.length > 2 && 2 || fields.length - 1
+					if (line.match(/^\s+\-\s+MATCH/)){
+						// handle the MATCH
+						field--
+					}
 					for (let j = 0; j < hints[field].length; j++) {
 						if (hints[field][j].toString().toUpperCase().indexOf(word.toUpperCase()) != -1) {
 							list.push(hints[field][j])
@@ -1086,8 +1083,8 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 		case 'proxy-groups':
 			rv = flatten(jsonConfig)
 			// handle provider
-			if (rv['use'] && rv['use'] instanceof Array) {
-				if (!(rv['proxies'] instanceof Array)) rv['proxies'] = []
+			if (Array.isArray(rv['use'])) {
+				if (! Array.isArray(rv['proxies'])) rv['proxies'] = []
 				rv['use'].forEach(provider => {
 					rv['proxies'].push(provider)
 				})
@@ -1426,8 +1423,9 @@ const removeConfig = function (section_id) {
 	if (confirm(_('!!! DELETE Configuration !!!\n??? Are you sure to DELETE the Configuration: ') + section_id + ' ???')) {
 		const config_name = this.uciconfig || this.map.config;
 
-		this.map.data.remove(config_name, section_id);
+		this.map.data.remove(config_name, section_id)
 		this.map.save(this.map, section_id)
+			.then(L.bind(this.map.reset, this.map))
 			.then(() => {
 				PODCLASH_DATA.upload()
 				setTimeout(() => {
