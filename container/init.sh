@@ -486,6 +486,8 @@ update_yacd() {
 case $1 in
 	stop) stop;;
 	daemon) start; tail -f /var/log/clash.log;;
+	install) update_clash && update_geoip && update_subconverter && update_yacd;;
+	install_premium) update_clash_premium && update_geoip && update_subconverter && update_yacd;;
 	update) update_clash && update_geoip && update_subconverter && update_yacd; start;;
 	update_yacd) update_yacd;;
 	update_geoip) update_geoip;;
