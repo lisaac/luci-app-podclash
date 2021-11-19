@@ -330,8 +330,8 @@ start_clash() {
 		# capsh $PROXY_PROCUSER -s/bin/sh -c"${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &"
 		capsh --user="$PROXY_PROCUSER" --addamb="cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/config.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
 		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
-		sleep 3
 	}
+	sleep 3
 	[ ! -n "$(pidof clash)" ] && {
 		# custom config apply not success
 		log_info "\t- ERROR: Use custom config failed, Using default config.."
@@ -466,7 +466,7 @@ update_subconverter() {
 	rm -fr /tmp/subconverter.tar.gz &> /dev/null
 	wget ${subconverter_url} -O /tmp/subconverter.tar.gz
 	# rm -fr ${SUBCONVERTER_PATH}/*
-	tar zxf --overwrite /tmp/subconverter.tar.gz --overwrite -C /
+	tar zxf /tmp/subconverter.tar.gz --overwrite -C /
 	rm -fr /tmp/subconverter.tar.gz &> /dev/null
 }
 
