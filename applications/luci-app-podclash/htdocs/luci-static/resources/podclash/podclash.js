@@ -1751,6 +1751,7 @@ const throttle = function (fn, wait) {
 }
 
 const addDomListener = function () {
+	if (document.getElementById('btn_update_clash')) return
 	const tabs = document.getElementsByClassName('cbi-tabmenu')[0].children
 	for (let tab of tabs) {
 		if (tab.getAttribute('data-tab') == '_INFO') {
@@ -1776,6 +1777,7 @@ const addDomListener = function () {
 
 const addUpdateButton = function () {
 	// add update/switch
+	if (document.getElementById('btn_update_clash')) return
 	const ver_td = document.getElementById('cbi-json-_INFO_10clash_version-value')
 	const update_btn = E('button', { 'id': 'btn_update_clash', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { updatePodClash(ev) } }, [_('Update')])
 	const switch_btn = E('button', { 'id': 'btn_switch_clash_ver', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { updatePodClash(ev) } }, [_('Switch')])
