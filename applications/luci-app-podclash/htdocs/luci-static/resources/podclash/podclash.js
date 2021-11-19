@@ -83,9 +83,8 @@ const PODCLASH_DATA = function () {
 				timeout: 0
 			}).then(res => {
 			}).catch(e => {
-				console.log('Save config ERROR: ',err)
+				console.log('Save config ERROR: ', err)
 				ui.addNotification(null, _("Save config ERROR: can't save config to Luci server !"))
-
 			})
 		}
 	}
@@ -1075,6 +1074,8 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 				rv['proxy-providers_type'] = jsonConfig[sname]['type']
 				rv['proxy-providers_path'] = CLASH_PROXY_PROVIDERS_PATH + sname + '.yaml'
 			}
+			// we don't need name (we had '.name')
+			delete rv['name']
 			break;
 		case 'proxy-providers':
 			rv = flatten(jsonConfig, 'proxy-providers')
@@ -1083,7 +1084,17 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 			rv['proxy-providers_path'] = CLASH_PROXY_PROVIDERS_PATH + sname + '.yaml'
 			break;
 		case 'proxy-groups':
-			rv = jsonConfig
+			rv = flatten(jsonConfig)
+			// handle provider
+			if(rv['use'] && rv['use'] instanceof Array){
+				if (! (rv['proxies'] instanceof Array)) rv['proxies'] = []
+				rv['use'].forEach(provider => {
+					rv['proxies'].push(provider)
+				})
+				delete rv['use']
+			}
+			// we don't need name (we had '.name')
+			delete rv['name']
 			break;
 		case 'rule-providers':
 			if (jsonConfig['type']) {
@@ -1251,7 +1262,7 @@ const viewConfig = function (section_id, ev) {
 									}
 								}
 
-								// render modal
+								// render parent modal
 								if (this.sectiontype != "Configuration") {
 									this.parentsection.parentmap.children[1].renderMoreOptionsModal(this.parentsection.section)
 								} else {
@@ -1501,7 +1512,7 @@ const _getClashInfo = function (podIP) {
 		}
 		return Promise.reject(res)
 	}).catch(err => {
-		console.log('Get CLASH info ERROR: ',err)
+		console.log('Get CLASH info ERROR: ', err)
 		ui.addNotification(null, _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!'))
 		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
 	})
@@ -1585,7 +1596,7 @@ const getPodNetworkInfo = function () {
 				"socket_path": '/var/run/docker.sock',
 				"Content-Type": 'application/json'
 			},
-			content:{},
+			content: {},
 			credentials: true
 		})
 	}).then(_res => {
@@ -1605,7 +1616,7 @@ const getPodNetworkInfo = function () {
 			_('Github: ') + (res.access_github_code == '200' && FONT_PERFIX_GREEN + ((res.access_github_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT) + ' | ' +
 			_('Google: ') + (res.access_google_code == '204' && FONT_PERFIX_GREEN + ((res.access_google_timeout * 1000).toFixed(2) + 'ms') + FONT_SUFFIX || FONT_TIMEOUT)
 	}).catch((err) => {
-		console.log('Get Public IP/Connect Check ERROR: ',err)
+		console.log('Get Public IP/Connect Check ERROR: ', err)
 		ui.addNotification(null, _("Get Public IP/Connect Check ERROR!"))
 	})
 }
@@ -1700,7 +1711,7 @@ const updatePodClash = function (ev) {
 				"socket_path": '/var/run/docker.sock',
 				"Content-Type": 'application/json'
 			},
-			content:{},
+			content: {},
 			credentials: true
 		})
 	}).then(res => {
@@ -1715,13 +1726,60 @@ const updatePodClash = function (ev) {
 			getClashInfo()
 		}, 3000);
 	}).catch(err => {
-		console.log('Update error: ',err)
+		console.log('Update error: ', err)
 		ui.addNotification(null, _("Unknow ERROR!"))
 		document.getElementById('btn_switch_clash_ver').disabled = false
 		document.getElementById('btn_update_clash').disabled = false
 		ev.target.innerHTML = _(rawInnerHTML)
 		ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
 	})
+}
+
+const throttle = function (fn, wait) {
+	let previous = 0;
+	return function () {
+		let now = new Date().getTime();
+		if (now - previous > wait) {
+			fn.apply(this, arguments);
+			previous = now;
+		}
+	}
+}
+
+const addDomListener = function () {
+	const tabs = document.getElementsByClassName('cbi-tabmenu')[0].children
+	for (let tab of tabs) {
+		if (tab.getAttribute('data-tab') == '_INFO') {
+			tab.addEventListener('click', throttle(function () {
+				getClashInfo()
+			}, 5000))
+		}
+		else if (tab.getAttribute('data-tab') == _('Logs')) {
+			tab.addEventListener('click', throttle(function () {
+				getPodLogs()
+					.then(logs => {
+						document.getElementById('clashlog').rows = logs.lines + 1
+						document.getElementById('clashlog').innerHTML = logs.logs
+					})
+					.catch(err => {
+						console.log('Get Logs ERROR: ', err)
+						ui.addNotification(null, _("Get Logs ERROR !"))
+					})
+			}, 2000))
+		}
+	}
+}
+
+const addUpdateButton = function () {
+	// add update/switch
+	const ver_td = document.getElementById('cbi-json-_INFO_10clash_version-value')
+	const update_btn = E('button', { 'id': 'btn_update_clash', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { updatePodClash(ev) } }, [_('Update')])
+	const switch_btn = E('button', { 'id': 'btn_switch_clash_ver', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { updatePodClash(ev) } }, [_('Switch')])
+	ver_td.style['display'] = 'inline-block'
+	ver_td.parentElement.appendChild(E('span', {}, '&nbsp;&nbsp;'))
+	ver_td.parentElement.appendChild(update_btn)
+	ver_td.parentElement.appendChild(E('span', {}, '&nbsp;'))
+	ver_td.parentElement.appendChild(switch_btn)
 }
 
 return baseclass.extend({
@@ -1750,6 +1808,8 @@ return baseclass.extend({
 	getPodNetworkInfo: getPodNetworkInfo,
 	getPodLogs: getPodLogs,
 	updatePodClash: updatePodClash,
+	addUpdateButton: addUpdateButton,
+	addDomListener: addDomListener,
 
 	proxy_types: proxy_types,
 	ciphers: ciphers,

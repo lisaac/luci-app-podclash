@@ -194,8 +194,10 @@ return view.extend({
 					// TODO: upload to luci server
 					if (!noUpload) podclash.data.upload()
 					if (needClose) ui.hideModal()
-					// setTimeout(() => {
-					// }, 0);
+					setTimeout(() => {
+						podclash.addDomListener()
+						podclash.addUpdateButton()
+					}, 0);
 					console.log(podclash.data.get())
 				})
 				// .then(ui.hideModal)
@@ -1051,47 +1053,9 @@ return view.extend({
 		// add Event Listener for tabs, tab click reload clash info and logs
 		setTimeout(() => {
 			podclash.getClashInfo()
-			const throttle = function (fn, wait) {
-				let previous = 0;
-				return function () {
-					let now = new Date().getTime();
-					if (now - previous > wait) {
-						fn.apply(this, arguments);
-						previous = now;
-					}
-				}
-			}
-			const tabs = document.getElementsByClassName('cbi-tabmenu')[0].children
-			for (let tab of tabs) {
-				if (tab.getAttribute('data-tab') == '_INFO') {
-					tab.addEventListener('click', throttle(function () {
-						podclash.getClashInfo()
-					}, 5000))
-				}
-				else if (tab.getAttribute('data-tab') == _('Logs')) {
-					tab.addEventListener('click', throttle(function () {
-						podclash.getPodLogs()
-							.then(logs => {
-								document.getElementById('clashlog').rows = logs.lines + 1
-								document.getElementById('clashlog').innerHTML = logs.logs
-							})
-							.catch(err => {
-								console.log('Get Logs ERROR: ',err)
-								ui.addNotification(null, _("Get Logs ERROR !"))
-							})
-					}, 2000))
-				}
-			}
-			// add update/switch
-			const ver_td = document.getElementById('cbi-json-_INFO_10clash_version-value')
-			const update_btn = E('button', { 'id': 'btn_update_clash', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { podclash.updatePodClash(ev) } }, [_('Update')])
-			const switch_btn = E('button', { 'id': 'btn_switch_clash_ver', 'disabled': 'true', 'class': 'cbi-button cbi-button-apply', 'click': (ev) => { podclash.updatePodClash(ev) } }, [_('Switch')])
-			ver_td.style['display'] = 'inline-block'
-			ver_td.parentElement.appendChild(E('span', {}, '&nbsp;&nbsp;'))
-			ver_td.parentElement.appendChild(update_btn)
-			ver_td.parentElement.appendChild(E('span', {}, '&nbsp;'))
-			ver_td.parentElement.appendChild(switch_btn)
-		}, 0);
+			podclash.addDomListener()
+			podclash.addUpdateButton()
+		})
 
 		return m.render()
 	},
