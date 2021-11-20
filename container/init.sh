@@ -324,9 +324,9 @@ start_iptables_post_rules() {
 start_clash() {
 	log_info "Starting clash.."
 	kill -9 $(pidof clash) &> /dev/null
+	echo "" > /var/log/clash.log && chown $PROXY_PROCUSER /var/log/clash.log && chown -R $PROXY_PROCUSER  /clash && \
 	[ -f "${CLASH_CONFIG}" ] && {
 		log_info "\t- Using custom config.."
-		echo "" > /var/log/clash.log && chown $PROXY_PROCUSER /var/log/clash.log && chown -R $PROXY_PROCUSER  /clash && \
 		# capsh $PROXY_PROCUSER -s/bin/sh -c"${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &"
 		capsh --user="$PROXY_PROCUSER" --addamb="cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/config.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
 		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
