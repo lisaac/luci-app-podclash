@@ -813,24 +813,24 @@ return view.extend({
 			so.value("DIRECT", "DIRECT")
 			so.value("REJECT", "REJECT")
 			so.parentsection = sConfig
-			so.renderWidget = function(section_id, option_index, cfgvalue) {
+			so.renderWidget = function (section_id, option_index, cfgvalue) {
 				let value = (cfgvalue != null) ? cfgvalue : this.default,
-						choices = this.transformChoices(),
-						items = L.toArray(value);
-				
+					choices = this.transformChoices(),
+					items = L.toArray(value);
+
 				const _parent_sid = this.parentsection.section
 				const _self_sid = this.section.section
-				if(Array.isArray(podclash.data.get(_parent_sid, 'proxies'))){
+				if (Array.isArray(podclash.data.get(_parent_sid, 'proxies'))) {
 					podclash.data.get(_parent_sid, 'proxies').forEach(p => {
-						this.value('Proxy: ' + p, p)
+						this.value(p, 'Proxy: ' + p)
 					})
 				}
-				if(Array.isArray(podclash.data.get(_parent_sid, 'proxy-groups'))){
+				if (Array.isArray(podclash.data.get(_parent_sid, 'proxy-groups'))) {
 					podclash.data.get(_parent_sid, 'proxy-groups').forEach(p => {
-						if (p != _self_sid) this.value('Proxy-Group: ' + p, p)
+						if (p != _self_sid) this.value(p, 'Proxy-Group: ' + p)
 					})
 				}
-		
+
 				let widget = new ui.DynamicList(items, choices, {
 					id: this.cbid(section_id),
 					sort: this.keylist,
@@ -840,7 +840,7 @@ return view.extend({
 					validate: L.bind(this.validate, this, section_id),
 					disabled: (this.readonly != null) ? this.readonly : this.map.readonly
 				});
-		
+
 				return widget.render();
 			}
 

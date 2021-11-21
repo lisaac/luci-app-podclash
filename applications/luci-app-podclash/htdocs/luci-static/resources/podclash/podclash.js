@@ -871,7 +871,7 @@ const genRulesCodeMirror = function (el, section_id) {
 					let field = fields.length > 2 && 2 || fields.length - 1
 					if (line.match(/^\s+\-\s+MATCH/)){
 						// handle the MATCH
-						field--
+						field = 2
 					}
 					for (let j = 0; j < hints[field].length; j++) {
 						if (hints[field][j].toString().toUpperCase().indexOf(word.toUpperCase()) != -1) {
