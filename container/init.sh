@@ -328,7 +328,7 @@ start_clash() {
 	[ -f "${CLASH_CONFIG}" ] && {
 		log_info "\t- Using custom config.."
 		# capsh $PROXY_PROCUSER -s/bin/sh -c"${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &"
-		capsh --user="$PROXY_PROCUSER" --addamb="cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/config.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
+		capsh --user="$PROXY_PROCUSER" --addamb="cap_sys_resource,cap_dac_override,cap_net_raw,cap_net_bind_service,cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/config.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
 		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
 	}
 	sleep 3
@@ -338,7 +338,7 @@ start_clash() {
 		echo -e 'port: 7890\nmode: "direct"\nallow-lan: true\nredir-port: '${CLASH_REDIR_PORT}'\ntproxy-port: '${CLASH_TPROXY_PORT}'\nexternal-ui: "/clash/yacd/"\nexternal-controller: ":9090"\nsecret: "podclash"\ndns: { enhanced-mode: "redir-host", ipv6: false, fake-ip-range: "198.18.0.1/16", enable: true, fallback: [ "tls://dns.google", "https://cloudflare-dns.com/dns-query", "tls://1.1.1.1:853" ], fake-ip-filter: [ "*.lan", "localhost.ptlogin2.qq.com" ], listen: "0.0.0.0:53", default-nameserver: [ "114.114.114.114", "8.8.8.8" ], nameserver: [ "114.114.114.114", "223.5.5.5" ], fallback-filter: { geoip: true, ipcidr: [ "240.0.0.0/4" ] }, use-hosts: true }\nrules:\n  - MATCH,DIRECT' > /clash/default.yaml
 		kill -9 $(pidof clash) &> /dev/null
 		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/default.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
-		capsh --user="$PROXY_PROCUSER" --addamb="cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/default.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
+		capsh --user="$PROXY_PROCUSER" --addamb="cap_sys_resource,cap_dac_override,cap_net_raw,cap_net_bind_service,cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/default.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
 	}
 }
 
