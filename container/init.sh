@@ -414,6 +414,8 @@ update_clash() {
 		clash_arch="amd64"
 	elif [ "$arch" = "aarch64" ]; then
 		clash_arch="armv8"
+	elif [ "$arch" = "armv7l" ]; then
+		clash_arch="armv7"
 	fi
 	clash_url="https://github.com/Dreamacro/clash/releases/download/${clash_latest_ver}/clash-linux-${clash_arch}-${clash_latest_ver}.gz"
 	rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
@@ -434,6 +436,8 @@ update_clash_premium() {
 		clash_arch="amd64"
 	elif [ "$arch" = "aarch64" ]; then
 		clash_arch="armv8"
+	elif [ "$arch" = "armv7l" ]; then
+		clash_arch="armv7"
 	fi
 	clash_premium_url="https://github.com/Dreamacro/clash/releases/download/premium/clash-linux-${clash_arch}-${clash_premium_latest_ver}.gz"
 	rm -fr ${CLASH_PATH}/clash.gz &> /dev/null
@@ -459,6 +463,8 @@ update_subconverter() {
 		subconverter_arch="linux64"
 	elif [ "$arch" = "aarch64" ]; then
 		subconverter_arch="aarch64"
+	elif [ "$arch" = "armv7l" ]; then
+		clash_arch="armv7"
 	fi
 	subconverter_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/tindy2013/subconverter/releases/latest | grep 'tag_name' | cut -d\" -f4)"
 	subconverter_url="https://github.com/tindy2013/subconverter/releases/download/${subconverter_latest_ver}/subconverter_${subconverter_arch}.tar.gz"
