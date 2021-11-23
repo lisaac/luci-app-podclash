@@ -192,8 +192,16 @@ return view.extend({
 				})
 				.then(() => {
 					// TODO: upload to luci server
-					if (!noUpload) podclash.data.upload()
-					if (needClose) ui.hideModal()
+					if (!noUpload) {
+						podclash.data.upload()
+							.finally(() => {
+								if (needClose) {
+									ui.hideModal()
+								}
+							})
+					} else if (needClose) {
+						ui.hideModal()
+					}
 					setTimeout(() => {
 						podclash.addDomListener()
 						podclash.addUpdateButton()

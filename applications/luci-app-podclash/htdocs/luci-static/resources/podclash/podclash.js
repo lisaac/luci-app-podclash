@@ -80,7 +80,7 @@ const PODCLASH_DATA = function () {
 			fmdata.append('sessionid', rpc.getSessionID())
 			fmdata.append('filename', SERVER_SIDE_CONFIG_PATH)
 			fmdata.append('filedata', jsonfile)
-			request.post(L.env.cgi_base + '/cgi-upload', fmdata, {
+			return request.post(L.env.cgi_base + '/cgi-upload', fmdata, {
 				timeout: 0
 			}).then(res => {
 			}).catch(e => {
@@ -1384,13 +1384,15 @@ const removeConfig = function (section_id) {
 
 		this.map.data.remove(config_name, section_id)
 		this.map.save(this.map, section_id)
-			.then(L.bind(this.map.reset, this.map))
 			.then(() => {
 				PODCLASH_DATA.upload()
-				setTimeout(() => {
-					addDomListener()
-					addUpdateButton()
-				}, 0)
+					.then(L.bind(this.map.reset, this.map))
+					.then(() => {
+						setTimeout(() => {
+							addDomListener()
+							addUpdateButton()
+						}, 0)
+					})
 			})
 	}
 }
