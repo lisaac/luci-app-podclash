@@ -12,13 +12,14 @@
 'require podclash/tar as tar';
 
 const SERVER_SIDE_CONFIG_PATH = '/etc/config/podclash'
-const CLASH_CONFIG_PATH = '/clash/config.yaml'
-const CLASH_PROXY_PROVIDERS_PATH = '/clash/proxies/'
-const CLASH_RULE_PROVIDERS_PATH = '/clash/rules/'
+const CLASH_CONFIG = '/clash/config/config.yaml'
+const CLASH_CONFIG_PATH = '/clash/config/'
+const CLASH_PROXY_PROVIDERS_PATH = '/clash/config/proxies/'
+const CLASH_RULE_PROVIDERS_PATH = '/clash/config/rules/'
 const POD_NAME = 'podclash'
 const CLASH_PORT = '9090'
 const CLASH_SECRET = 'podclash'
-const CREATE_POD_CLI = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 -p 7894:7894 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
+const CREATE_POD_CLI = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -v podclash:/clash/config -p 9090:9090 -p 7890:7890 -p 7891:7891 -p 7892:7892 -p 7893:7893 -p 7894:7894 --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
 
 const FONT_PERFIX_RED = '<font style="font-weight: bold; color: #ff0000;">'
 const FONT_PERFIX_GREEN = '<font style="font-weight: bold; color: #00aa00;">'
@@ -869,7 +870,7 @@ const genRulesCodeMirror = function (el, section_id) {
 					let word = line.slice(start, end)
 					const fields = line.split(',')
 					let field = fields.length > 2 && 2 || fields.length - 1
-					if (line.match(/^\s+\-\s+MATCH/)){
+					if (line.match(/^\s+\-\s+MATCH/)) {
 						// handle the MATCH
 						field = 2
 					}
@@ -1084,7 +1085,7 @@ const resolveConfig = function (jsonConfig, sname, needSectionType) {
 			rv = flatten(jsonConfig)
 			// handle provider
 			if (Array.isArray(rv['use'])) {
-				if (! Array.isArray(rv['proxies'])) rv['proxies'] = []
+				if (!Array.isArray(rv['proxies'])) rv['proxies'] = []
 				rv['use'].forEach(provider => {
 					rv['proxies'].push(provider)
 				})
@@ -1352,9 +1353,9 @@ const applyConfig = function (section_id, ev) {
 	// }
 	return file2Tar(tar.Globals.Instance.tarFile, yamlfile).then(tarfile => {
 		return getPodStatus(POD_NAME).then(pod => {
-			return request.request('/socket/containers/' + POD_NAME + '/archive?path=/clash/', {
+			return request.request('/socket/containers/' + POD_NAME + '/archive', {
 				method: 'PUT',
-				query: {},
+				query: { 'path': CLASH_CONFIG_PATH },
 				headers: { 'socket_path': '/var/run/docker.sock' },
 				credentials: true,
 				content: () => tarfile
@@ -1367,7 +1368,7 @@ const applyConfig = function (section_id, ev) {
 					query: { "force": "true" },
 					headers: { 'Authorization': "Bearer " + CLASH_SECRET, },
 					// credentials: true,
-					content: { "path": CLASH_CONFIG_PATH }
+					content: { "path": CLASH_CONFIG }
 				})
 			}).then(res => {
 				if (res.status < 300) return Promise.resolve(res)
@@ -1375,48 +1376,6 @@ const applyConfig = function (section_id, ev) {
 			})
 		})
 	})
-	// request.request('/socket/containers/' + POD_NAME + '/archive?path=/clash/', {
-	// 	method: 'PUT',
-	// 	query: {},
-	// 	headers: { 'socket_path': '/var/run/docker.sock' },
-	// 	credentials: true,
-	// 	content: () => tarfile
-	// }).then(res => {
-	// 	if (res.status == 200) return Promise.resolve(res)
-	// 	return Promise.reject(res)
-	// }).then(res => {
-	// 	return request.request("http://" + podIP + ":" + CLASH_PORT + "/configs", {
-	// 		method: 'PUT',
-	// 		query: { "force": "true" },
-	// 		headers: { 'Authorization': "Bearer " + CLASH_SECRET, },
-	// 		// credentials: true,
-	// 		content: { "path": CLASH_CONFIG_PATH }
-	// 	})
-	// }).then(res => {
-	// 	if (res.status < 300) return Promise.resolve(res)
-	// 	return Promise.reject(res)
-	// }).then(res => {
-	// 	ev.target.innerHTML = _('Succeed')
-	// 	ev.target.setAttribute('class', 'cbi-button cbi-button-positive')
-	// 	setTimeout(() => {
-	// 		ev.target.disabled = false
-	// 		ev.target.innerHTML = _('Apply')
-	// 		ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
-	// 	}, 3000);
-	// }).catch(err => {
-	// 	console.log('err:', err)
-	// 	ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + JSON.parse(err.responseText).message)
-	// 	setTimeout(() => {
-	// 		ev.target.disabled = false
-	// 		ev.target.innerHTML = _('Failed')
-	// 		ev.target.setAttribute('class', 'cbi-button cbi-button-negative')
-	// 	}, 500);
-	// 	setTimeout(() => {
-	// 		ev.target.disabled = false
-	// 		ev.target.innerHTML = _('Apply')
-	// 		ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
-	// 	}, 3000);
-	// })
 }
 
 const removeConfig = function (section_id) {
@@ -1664,7 +1623,7 @@ const getClashInfo = function () {
 				case 'NoPod':
 					getDockerMacvlanNetwork()
 						.then(macvlan_net_name => {
-							const create_pod_cli = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai --network " + macvlan_net_name + " --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
+							const create_pod_cli = "DOCKERCLI -d --privileged -e TZ=Asia/Shanghai -v podclash:/clash/config --network " + macvlan_net_name + " --restart unless-stopped --name " + POD_NAME + " lisaac/podclash"
 							ui.addNotification(null, '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + create_pod_cli + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>')
 							document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = '<a href="' + L.env.cgi_base + '/luci/admin/docker/newcontainer/' + create_pod_cli + ' ">' + _('No Container: ' + POD_NAME + ' found, pleae create it first!') + '</a>'
 						})

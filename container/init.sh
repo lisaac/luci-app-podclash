@@ -18,8 +18,10 @@ is_support_tproxy() {
 is_support_tproxy && TCP_TPROXY='true'
 PROXY_PROCUSER='daemon'
 
+WHITElIST_PATH='/clash/whitelist'
 CLASH_PATH="/clash"
-CLASH_CONFIG="$CLASH_PATH/config.yaml"
+CLASH_CONFIG="$CLASH_PATH/config/config.yaml"
+CLASH_DEFAULT_CONFIG="$CLASH_PATH/config/default.yaml"
 CLASH_REDIR_PORT=7892
 CLASH_TPROXY_PORT=7893
 CLASH_DNS_PORT=53
@@ -186,7 +188,7 @@ delete_iproute2() {
 
 add_white_list4() {
 	#$1: iptables, $2: table, $3 chain
-	[ ! -f /clash/whitelist/whitelist4 ] && return
+	[ ! -f ${WHITElIST_PATH}/whitelist4 ] && return
 	while read line
 	do 
 		local host=$(echo $line | awk -F':' '{print $1}')
@@ -201,7 +203,7 @@ add_white_list4() {
 			$1 -t $2 -A $3 -p udp -m multiport --sports $port -j RETURN
 			$1 -t $2 -A $3 -p tcp -m multiport --sports $port -j RETURN
 		fi
-	done < /clash/whitelist/whitelist4
+	done < ${WHITElIST_PATH}/whitelist4
 }
 
 loopback_addr() {
@@ -328,17 +330,17 @@ start_clash() {
 	[ -f "${CLASH_CONFIG}" ] && {
 		log_info "\t- Using custom config.."
 		# capsh $PROXY_PROCUSER -s/bin/sh -c"${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &"
-		capsh --user="$PROXY_PROCUSER" --addamb="cap_sys_resource,cap_dac_override,cap_net_raw,cap_net_bind_service,cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/config.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
-		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/config.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
+		capsh --user="$PROXY_PROCUSER" --addamb="cap_sys_resource,cap_dac_override,cap_net_raw,cap_net_bind_service,cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_CONFIG}" -d "${CLASH_PATH}"  &> /var/log/clash.log &
+		# ${CLASH_PATH}/clash -f ${CLASH_CONFIG} -d ${CLASH_PATH} &> /var/log/clash.log &
 	}
 	sleep 3
 	[ ! -n "$(pidof clash)" ] && {
 		# custom config apply not success
 		log_info "\t- ERROR: Use custom config failed, Using default config.."
-		echo -e 'port: 7890\nmode: "direct"\nallow-lan: true\nredir-port: '${CLASH_REDIR_PORT}'\ntproxy-port: '${CLASH_TPROXY_PORT}'\nexternal-ui: "/clash/yacd/"\nexternal-controller: ":9090"\nsecret: "podclash"\ndns: { enhanced-mode: "redir-host", ipv6: false, fake-ip-range: "198.18.0.1/16", enable: true, fallback: [ "tls://dns.google", "https://cloudflare-dns.com/dns-query", "tls://1.1.1.1:853" ], fake-ip-filter: [ "*.lan", "localhost.ptlogin2.qq.com" ], listen: "0.0.0.0:53", default-nameserver: [ "114.114.114.114", "8.8.8.8" ], nameserver: [ "114.114.114.114", "223.5.5.5" ], fallback-filter: { geoip: true, ipcidr: [ "240.0.0.0/4" ] }, use-hosts: true }\nrules:\n  - MATCH,DIRECT' > /clash/default.yaml
+		echo -e 'port: 7890\nmode: "direct"\nallow-lan: true\nredir-port: '${CLASH_REDIR_PORT}'\ntproxy-port: '${CLASH_TPROXY_PORT}'\nexternal-ui: "/clash/yacd/"\nexternal-controller: ":9090"\nsecret: "podclash"\ndns: { enhanced-mode: "redir-host", ipv6: false, fake-ip-range: "198.18.0.1/16", enable: true, fallback: [ "tls://dns.google", "https://cloudflare-dns.com/dns-query", "tls://1.1.1.1:853" ], fake-ip-filter: [ "*.lan", "localhost.ptlogin2.qq.com" ], listen: "0.0.0.0:53", default-nameserver: [ "114.114.114.114", "8.8.8.8" ], nameserver: [ "114.114.114.114", "223.5.5.5" ], fallback-filter: { geoip: true, ipcidr: [ "240.0.0.0/4" ] }, use-hosts: true }\nrules:\n  - MATCH,DIRECT' > ${CLASH_DEFAULT_CONFIG}
 		kill -9 $(pidof clash) &> /dev/null
-		# ${CLASH_PATH}/clash -f ${CLASH_PATH}/default.yaml -d ${CLASH_PATH} &> /var/log/clash.log &
-		capsh --user="$PROXY_PROCUSER" --addamb="cap_sys_resource,cap_dac_override,cap_net_raw,cap_net_bind_service,cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_PATH}/default.yaml" -d "${CLASH_PATH}"  &> /var/log/clash.log &
+		# ${CLASH_PATH}/clash -f ${CLASH_DEFAULT_CONFIG} -d ${CLASH_PATH} &> /var/log/clash.log &
+		capsh --user="$PROXY_PROCUSER" --addamb="cap_sys_resource,cap_dac_override,cap_net_raw,cap_net_bind_service,cap_net_admin" --shell="${CLASH_PATH}/clash" --  -f "${CLASH_DEFAULT_CONFIG}" -d "${CLASH_PATH}"  &> /var/log/clash.log &
 	}
 }
 
@@ -407,6 +409,7 @@ update_clash() {
 	mkdir -p ${CLASH_PATH}/rules
 	mkdir -p ${CLASH_PATH}/proxies
 	mkdir -p ${CLASH_PATH}/whitelist
+	mkdir -p ${CLASH_PATH}/config
 	touch ${CLASH_PATH}/whitelist/whitelist4
 	arch=$(uname -m)
 	clash_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/clash/releases/latest | grep 'tag_name' | cut -d\" -f4)"
@@ -430,6 +433,9 @@ update_clash_premium() {
 	echo "$(date +%Y-%m-%d\ %T) Updating clash premium.."
 	mkdir -p ${CLASH_PATH}/rules
 	mkdir -p ${CLASH_PATH}/proxies
+	mkdir -p ${CLASH_PATH}/whitelist
+	mkdir -p ${CLASH_PATH}/config
+	touch ${CLASH_PATH}/whitelist/whitelist4
 	arch=$(uname -m)
 	clash_premium_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/clash/releases/tags/premium | grep '"name": "Premium ' | awk -F '[": ]' '{print $9}')"
 	if [ "$arch" = "x86_64" ]; then
@@ -481,9 +487,10 @@ update_yacd() {
 	ycad_url="https://github.com/haishanh/yacd/archive/gh-pages.zip"
 	rm -fr /tmp/yacd.zip &> /dev/null
 	wget ${ycad_url} -O /tmp/yacd.zip
-	# rm -fr ${YACD_PATH} &> /dev/null
 	unzip -o /tmp/yacd.zip -d $CLASH_PATH
-	mv $CLASH_PATH/yacd-gh-pages $YACD_PATH &> /dev/null
+	# rm -fr ${YACD_PATH} &> /dev/null
+	# mv -f $CLASH_PATH/yacd-gh-pages $YACD_PATH &> /dev/null
+	ln -sf $CLASH_PATH/yacd-gh-pages $YACD_PATH
 	# add default config
 	sed -i "s|</body>|<script type=\"text/javascript\">localStorage[\"yacd.haishan.me\"] = \'{\"clashAPIConfigs\":[{\"baseURL\":\"http://\'+location.hostname+\':9090\",\"secret\":\"podclash\",\"addedAt\":0}]}\'</script></body>|" $YACD_PATH/index.html
 	rm $YACD_PATH/CNAME &> /dev/null
