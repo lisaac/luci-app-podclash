@@ -218,7 +218,7 @@ return view.extend({
 					'click': (ev) => {
 						ev.target.disabled = true
 						ev.target.innerHTML = _('Applying')
-						ev.target.setAttribute('class', 'cbi-button cbi-button-up')
+						ev.target.setAttribute('class', 'cbi-button cbi-button-up spinning')
 						podclash.applyConfig(section_id, ev)
 							.then(res => {
 								ev.target.innerHTML = _('Succeed')

@@ -1450,91 +1450,90 @@ const getPodLogs = function () {
 }
 
 const _getClashInfo = function (podIP) {
-	request.request("http://" + podIP + ":" + CLASH_PORT + "/configs", {
-		method: 'GET',
-		// query: {},
-		headers: {
-			'Authorization': "Bearer " + CLASH_SECRET
-		},
-		// credentials: true
-	}).then(res => {
-		if (res.status < 300) {
-			const configs = JSON.parse(res.responseText)
-			const h = {
-				'_INFO_00pod_name': '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>',
-				'_INFO_01pod_ip': podIP,
-				'_INFO_11clash_running_mode': configs.mode.toUpperCase(),
-				'_INFO_13clash_ports': 'Http: <b>' + configs.port + '</b> | Socks: <b>' + configs['socks-port'] + '</b> | Mixed: <b>' + configs['mixed-port'] + '</b>',
-				'_INFO_22clash_dashboard': "<a target=\"_blank\" href=http://" + podIP + ":" + CLASH_PORT + "/ui>http://" + podIP + ":" + CLASH_PORT + "/ui</a>",
+	return Promise.all([
+		request.request("http://" + podIP + ":" + CLASH_PORT + "/configs", {
+			method: 'GET',
+			// query: {},
+			headers: {
+				'Authorization': "Bearer " + CLASH_SECRET
+			},
+			// credentials: true
+		}).then(res => {
+			if (res.status < 300) {
+				const configs = JSON.parse(res.responseText)
+				const h = {
+					'_INFO_00pod_name': '<a href=' + L.env.scriptname + '/admin/docker/container/' + POD_NAME + '>' + POD_NAME + '</a>',
+					'_INFO_01pod_ip': podIP,
+					'_INFO_11clash_running_mode': configs.mode.toUpperCase(),
+					'_INFO_13clash_ports': 'Http: <b>' + configs.port + '</b> | Socks: <b>' + configs['socks-port'] + '</b> | Mixed: <b>' + configs['mixed-port'] + '</b>',
+					'_INFO_22clash_dashboard': "<a target=\"_blank\" href=http://" + podIP + ":" + CLASH_PORT + "/ui>http://" + podIP + ":" + CLASH_PORT + "/ui</a>",
+				}
+				for (let k in h) {
+					const id = 'cbi-json-' + k + '-value'
+					document.getElementById(id).children[0].innerHTML = h[k]
+				}
+				return Promise.resolve()
 			}
-			for (let k in h) {
-				const id = 'cbi-json-' + k + '-value'
-				document.getElementById(id).children[0].innerHTML = h[k]
+			return Promise.reject(res)
+		}).catch(err => {
+			console.log('Get CLASH info ERROR: ', err)
+			ui.addNotification(null, _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!'))
+			document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
+		}),
+		request.request("http://" + podIP + ":" + CLASH_PORT + "/proxies", {
+			method: 'GET',
+			// query: {},
+			headers: {
+				'Authorization': "Bearer " + CLASH_SECRET
+			},
+			// credentials: true
+		}).then(res => {
+			if (res.status > 300) return
+			const p = JSON.parse(res.responseText)
+			let count = 0
+			for (let k in p.proxies) {
+				count++
 			}
-			return Promise.resolve()
-		}
-		return Promise.reject(res)
-	}).catch(err => {
-		console.log('Get CLASH info ERROR: ', err)
-		ui.addNotification(null, _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!'))
-		document.getElementById('cbi-json-_INFO_00pod_name-value').children[0].innerHTML = _('Get CLASH info ERROR, make sure CLASH STARTED and you can ACCESS CLASH API !!')
-	})
-
-	request.request("http://" + podIP + ":" + CLASH_PORT + "/proxies", {
-		method: 'GET',
-		// query: {},
-		headers: {
-			'Authorization': "Bearer " + CLASH_SECRET
-		},
-		// credentials: true
-	}).then(res => {
-		if (res.status > 300) return
-		const p = JSON.parse(res.responseText)
-		let count = 0
-		for (let k in p.proxies) {
-			count++
-		}
-		count -= 3
-		let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
-		val = val.replace(/Proxies: [\<\>b]*[\d\-]+[\<\/\>b]*/, 'Proxies: <b>' + count + '</b>')
-		document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
-	})
-
-	request.request("http://" + podIP + ":" + CLASH_PORT + "/rules", {
-		method: 'GET',
-		// query: {},
-		headers: {
-			'Authorization': "Bearer " + CLASH_SECRET
-		},
-		// credentials: true
-	}).then(res => {
-		if (res.status > 300) return
-		const r = JSON.parse(res.responseText)
-		let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
-		val = val.replace(/Rules: [\<\>b]*[\d\-]+[\<\/\>b]*/, 'Rules: <b>' + String(r.rules.length) + '</b>')
-		document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
-	})
-
-	request.request("http://" + podIP + ":" + CLASH_PORT + "/version", {
-		method: 'GET',
-		// query: {},
-		headers: {
-			'Authorization': "Bearer " + CLASH_SECRET
-		},
-		// credentials: true
-	}).then(res => {
-		if (res.status > 300) return
-		const v = JSON.parse(res.responseText)
-		document.getElementById('cbi-json-_INFO_10clash_version-value').children[0].innerHTML = (v.version.match(/^v/) ? _('Community Ver: ') : _('Premium Ver: ')) + v.version
-		document.getElementById('btn_switch_clash_ver').innerHTML = (v.version.match(/^v/) ? _('Switch to Premium') : _('Switch to Community'))
-		document.getElementById('btn_switch_clash_ver').disabled = false
-		document.getElementById('btn_update_clash').disabled = false
-	})
+			count -= 3
+			let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
+			val = val.replace(/Proxies: [\<\>b]*[\d\-]+[\<\/\>b]*/, 'Proxies: <b>' + count + '</b>')
+			document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
+		}),
+		request.request("http://" + podIP + ":" + CLASH_PORT + "/rules", {
+			method: 'GET',
+			// query: {},
+			headers: {
+				'Authorization': "Bearer " + CLASH_SECRET
+			},
+			// credentials: true
+		}).then(res => {
+			if (res.status > 300) return
+			const r = JSON.parse(res.responseText)
+			let val = document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML
+			val = val.replace(/Rules: [\<\>b]*[\d\-]+[\<\/\>b]*/, 'Rules: <b>' + String(r.rules.length) + '</b>')
+			document.getElementById('cbi-json-_INFO_12clash_proxies_rules-value').children[0].innerHTML = val
+		}),
+		request.request("http://" + podIP + ":" + CLASH_PORT + "/version", {
+			method: 'GET',
+			// query: {},
+			headers: {
+				'Authorization': "Bearer " + CLASH_SECRET
+			},
+			// credentials: true
+		}).then(res => {
+			if (res.status > 300) return
+			const v = JSON.parse(res.responseText)
+			document.getElementById('cbi-json-_INFO_10clash_version-value').children[0].innerHTML = (v.version.match(/^v/) ? _('Community Ver: ') : _('Premium Ver: ')) + v.version
+			document.getElementById('btn_switch_clash_ver').innerHTML = (v.version.match(/^v/) ? _('Switch to Premium') : _('Switch to Community'))
+			document.getElementById('btn_switch_clash_ver').disabled = false
+			document.getElementById('btn_update_clash').disabled = false
+		})
+	])
 }
 
 const getPodNetworkInfo = function () {
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
-	request.request("/socket/containers/" + POD_NAME + "/exec", {
+	return request.request("/socket/containers/" + POD_NAME + "/exec", {
 		method: 'POST',
 		// query: {},
 		headers: {
@@ -1605,10 +1604,9 @@ const getDockerMacvlanNetwork = function () {
 }
 
 const getClashInfo = function () {
-	getPodStatus(POD_NAME)
+	return getPodStatus(POD_NAME)
 		.then(pod => {
-			_getClashInfo(pod.ip)
-			getPodNetworkInfo()
+			return Promise.all([_getClashInfo(pod.ip), getPodNetworkInfo()])
 		})
 		.catch(pod => {
 			switch (pod.status) {
@@ -1646,7 +1644,7 @@ const updatePodClash = function (ev) {
 	document.getElementById('btn_switch_clash_ver').disabled = true
 	document.getElementById('btn_update_clash').disabled = true
 	ev.target.innerHTML = isSwitch ? _('Switching..') : _('Updating..')
-	ev.target.setAttribute('class', 'cbi-button cbi-button-up')
+	ev.target.setAttribute('class', 'cbi-button cbi-button-up spinning')
 
 	document.cookie = 'sysauth=' + encodeURIComponent(L.env.sessionid) + ";path=/socket";
 	request.request("/socket/containers/" + POD_NAME + "/exec", {
@@ -1686,7 +1684,14 @@ const updatePodClash = function (ev) {
 			ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
 			document.getElementById('btn_switch_clash_ver').disabled = false
 			document.getElementById('btn_update_clash').disabled = false
-			getClashInfo()
+			const tab = document.getElementsByClassName('cbi-tabmenu')[0].children[0]
+			let cls = tab.getAttribute('class')
+			cls = cls.concat(' spinning')
+			tab.setAttribute('class', cls)
+			getClashInfo().finally(() => {
+				cls = cls.replace(" spinning", "")
+				tab.setAttribute('class', cls)
+			})
 		}, 3000);
 	}).catch(err => {
 		console.log('Update error: ', err)
@@ -1715,11 +1720,20 @@ const addDomListener = function () {
 	for (let tab of tabs) {
 		if (tab.getAttribute('data-tab') == '_INFO') {
 			tab.addEventListener('click', throttle(function () {
-				getClashInfo()
+				let cls = tab.getAttribute('class')
+				cls = cls.concat(' spinning')
+				tab.setAttribute('class', cls)
+				getClashInfo().finally(() => {
+					cls = cls.replace(" spinning", "")
+					tab.setAttribute('class', cls)
+				})
 			}, 5000))
 		}
 		else if (tab.getAttribute('data-tab') == _('Logs')) {
 			tab.addEventListener('click', throttle(function () {
+				let cls = tab.getAttribute('class')
+				cls = cls.concat(' spinning')
+				tab.setAttribute('class', cls)
 				getPodLogs()
 					.then(logs => {
 						document.getElementById('clashlog').rows = logs.lines + 1
@@ -1728,6 +1742,10 @@ const addDomListener = function () {
 					.catch(err => {
 						console.log('Get Logs ERROR: ', err)
 						ui.addNotification(null, _("Get Logs ERROR !"))
+					})
+					.finally(() => {
+						cls = cls.replace(" spinning", "")
+						tab.setAttribute('class', cls)
 					})
 			}, 2000))
 		}
