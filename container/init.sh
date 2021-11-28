@@ -103,20 +103,6 @@ enable_rtlocalnet() {
 	set_sysctl_option 'net.bridge.bridge-nf-call-arptables' 0
 }
 
-_flush_postrule() {
-	$1 -t nat -D PREROUTING  -j TP_PREROUTING  &>/dev/null
-	$1 -t nat -D POSTROUTING -j TP_POSTROUTING &>/dev/null
-	$1 -t nat -F TP_PREROUTING  &>/dev/null
-	$1 -t nat -X TP_PREROUTING  &>/dev/null
-	$1 -t nat -F TP_POSTROUTING &>/dev/null
-	$1 -t nat -X TP_POSTROUTING &>/dev/null
-}
-
-flush_postrule() {
-	is_true "$IPV4" && _flush_postrule "iptables"
-	is_true "$IPV6" && _flush_postrule "ip6tables"
-}
-
 _flush_iptables() {
 	$1 -t mangle -D PREROUTING  -j TP_PREROUTING  &>/dev/null
 	$1 -t mangle -D OUTPUT      -j TP_OUTPUT      &>/dev/null
@@ -139,6 +125,15 @@ _flush_iptables() {
 	$1 -t mangle -X TP_RULE &>/dev/null
 	$1 -t nat    -F TP_RULE &>/dev/null
 	$1 -t nat    -X TP_RULE &>/dev/null
+
+	$1 -t raw -F    &>/dev/null
+	$1 -t raw -X    &>/dev/null
+	$1 -t mangle -F &>/dev/null
+	$1 -t mangle -X &>/dev/null
+	$1 -t nat -F    &>/dev/null
+	$1 -t nat -X    &>/dev/null
+	$1 -t filter -F &>/dev/null
+	$1 -t filter -X &>/dev/null
 }
 
 flush_iptables() {
@@ -219,7 +214,7 @@ start_iptables_tproxy_mode() {
 	$1 -t mangle -N TP_RULE
 	$1 -t mangle -A TP_RULE -j CONNMARK --restore-mark
 	$1 -t mangle -A TP_RULE -m mark --mark $TPROXY_MARK -j RETURN
-	$1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
+	# $1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
 	for privaddr in $(privaddr_array $1); do $1 -t mangle -A TP_RULE -d $privaddr -j RETURN; done
 
 	$1 -t mangle -A TP_RULE -p tcp --syn -j MARK --set-mark $TPROXY_MARK
@@ -230,10 +225,12 @@ start_iptables_tproxy_mode() {
 	$1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
 	$1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 
+	$1 -t nat -A TP_PREROUTING -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j REDIRECT --to-ports 53
+
 	is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
 	
 	$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
-	$1 -t mangle -A TP_PREROUTING -p udp --dport 53 -j RETURN
+	$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j RETURN
 	$1 -t mangle -A TP_PREROUTING -m addrtype --dst-type BROADCAST -j RETURN
 
 	$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
@@ -254,7 +251,7 @@ start_iptables_redirect_mode() {
 		$1 -t mangle -N TP_RULE
 		$1 -t mangle -A TP_RULE -j CONNMARK --restore-mark
 		$1 -t mangle -A TP_RULE -m mark --mark $TPROXY_MARK -j RETURN
-		$1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
+		# $1 -t mangle -A TP_RULE -p udp --dport 53           -j RETURN
 		for privaddr in $(privaddr_array $1); do $1 -t mangle -A TP_RULE -d $privaddr -j RETURN; done
 
 		$1 -t mangle -A TP_RULE -p udp -m conntrack --ctstate NEW -j MARK --set-mark $TPROXY_MARK
@@ -264,15 +261,18 @@ start_iptables_redirect_mode() {
 	######################### TP_OUTPUT/TP_PREROUTING #########################
 	$1 -t nat    -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
 	$1 -t nat    -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
+
+	$1 -t nat -A TP_PREROUTING -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j REDIRECT --to-ports 53
 	is_true "$IPV4" && add_white_list4 $1 nat TP_PREROUTING
-	$1 -t nat    -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
+	$1 -t nat -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p tcp -j TP_RULE
 
 	is_support_tproxy && {
 		$1 -t mangle -A TP_OUTPUT -m owner --uid-owner $PROXY_PROCUSER -j RETURN
 		$1 -t mangle -A TP_OUTPUT -m addrtype --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 		is_true "$IPV4" && add_white_list4 $1 mangle TP_PREROUTING
 		$1 -t mangle -A TP_PREROUTING -i $INTERFACE_LO -m mark ! --mark $TPROXY_MARK -j RETURN
-			$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
+		$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL --dst-type LOCAL -p udp --dport 53 -j RETURN
+		$1 -t mangle -A TP_PREROUTING -m addrtype ! --src-type LOCAL ! --dst-type LOCAL -p udp -j TP_RULE
 
 		$1 -t mangle -A TP_PREROUTING -p udp -m mark --mark $TPROXY_MARK -j TPROXY --on-ip $(loopback_addr $1) --on-port $CLASH_TPROXY_PORT
 	}
@@ -365,7 +365,7 @@ stop_proxy_proc() {
 flush() {
 	log_info "Flushing iptables.."
 	delete_iproute2
-	flush_postrule
+	# flush_postrule
 	flush_iptables
 }
 
