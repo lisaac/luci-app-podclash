@@ -18,7 +18,7 @@ is_support_tproxy() {
 is_support_tproxy && TCP_TPROXY='true'
 PROXY_PROCUSER='daemon'
 
-WHITElIST_PATH='/clash/whitelist'
+WHITElIST_PATH='/clash/config/whitelist'
 CLASH_PATH="/clash"
 CLASH_CONFIG="$CLASH_PATH/config/config.yaml"
 CLASH_DEFAULT_CONFIG="$CLASH_PATH/config/default.yaml"
@@ -51,8 +51,6 @@ is_ipv4_ipts() {
 is_ipv6_ipts() {
 	[ "$1" = 'ip6tables' ]
 }
-
-
 
 is_empty_iptschain() {
 	local ipts="$1" table="$2" chain="$3"
@@ -406,11 +404,10 @@ handle_dns_onstop() {
 
 update_clash() {
 	echo "$(date +%Y-%m-%d\ %T) Updating clash.."
-	mkdir -p ${CLASH_PATH}/rules
-	mkdir -p ${CLASH_PATH}/proxies
-	mkdir -p ${CLASH_PATH}/whitelist
-	mkdir -p ${CLASH_PATH}/config
-	touch ${CLASH_PATH}/whitelist/whitelist4
+	mkdir -p ${CLASH_PATH}/config/rules
+	mkdir -p ${CLASH_PATH}/config/proxies
+	mkdir -p ${CLASH_PATH}/config/whitelist
+	touch ${CLASH_PATH}/config/whitelist/whitelist4
 	arch=$(uname -m)
 	clash_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/clash/releases/latest | grep 'tag_name' | cut -d\" -f4)"
 	if [ "$arch" = "x86_64" ]; then
@@ -431,11 +428,10 @@ update_clash() {
 
 update_clash_premium() {
 	echo "$(date +%Y-%m-%d\ %T) Updating clash premium.."
-	mkdir -p ${CLASH_PATH}/rules
-	mkdir -p ${CLASH_PATH}/proxies
-	mkdir -p ${CLASH_PATH}/whitelist
-	mkdir -p ${CLASH_PATH}/config
-	touch ${CLASH_PATH}/whitelist/whitelist4
+	mkdir -p ${CLASH_PATH}/config/rules
+	mkdir -p ${CLASH_PATH}/config/proxies
+	mkdir -p ${CLASH_PATH}/config/whitelist
+	touch ${CLASH_PATH}/config/whitelist/whitelist4
 	arch=$(uname -m)
 	clash_premium_latest_ver="$(curl -H 'Cache-Control: no-cache' -s https://api.github.com/repos/Dreamacro/clash/releases/tags/premium | grep '"name": "Premium ' | awk -F '[": ]' '{print $9}')"
 	if [ "$arch" = "x86_64" ]; then
