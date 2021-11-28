@@ -231,20 +231,16 @@ return view.extend({
 							.then(res => {
 								ev.target.innerHTML = _('Succeed')
 								ev.target.setAttribute('class', 'cbi-button cbi-button-positive')
-								setTimeout(() => {
-									ev.target.disabled = false
-									ev.target.innerHTML = _('Apply')
-									ev.target.setAttribute('class', 'cbi-button cbi-button-apply')
-								}, 2000);
 							})
 							.catch(err => {
-								console.log('Apply configuration' + section_id + ' error: ', err)
-								ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + JSON.parse(err.responseText).message)
+								ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + err)
 								setTimeout(() => {
 									ev.target.disabled = false
 									ev.target.innerHTML = _('Failed')
 									ev.target.setAttribute('class', 'cbi-button cbi-button-negative')
 								}, 500);
+							})
+							.finally(()=>{
 								setTimeout(() => {
 									ev.target.disabled = false
 									ev.target.innerHTML = _('Apply')
