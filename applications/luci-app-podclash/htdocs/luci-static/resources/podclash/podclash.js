@@ -136,7 +136,7 @@ const template = {
 			"enhanced-mode": null,
 			"nameserver-policy": {},
 			"default-nameserver": null,
-			"fake-ip-range": null,
+			"fake-ip-range": '198.18.0.1/16',
 			"use-hosts": null,
 			"fake-ip-filter": null,
 			"nameserver": null,

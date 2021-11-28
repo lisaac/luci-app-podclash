@@ -317,18 +317,30 @@ return view.extend({
 			o.datatype = "port"
 			o.DATATYPE = "number"
 			o.placeholder = 7890
+			o.validate = function(sid, val) {
+				if(val == 7892 || val == 7893) return _('Port 7892 / 7893 is built-in.');
+				return true
+			}
 			// o.depends("allow-lan", true)
 
 			o = sConfig.taboption('general', form.Value, 'socks-port', _("Port of Socks"))
 			o.DATATYPE = "number"
 			o.datatype = "port"
 			o.placeholder = 7891
+			o.validate = function(sid, val) {
+				if(val == 7892 || val == 7893) return _('Port 7892 / 7893 is built-in.');
+				return true
+			}
 			// o.depends("allow-lan", true)
 
 			o = sConfig.taboption('general', form.Value, 'mixed-port', _("Port of HTTP&SOCKS5"))
 			o.DATATYPE = "number"
 			o.datatype = "port"
 			o.placeholder = 7894
+			o.validate = function(sid, val) {
+				if(val == 7892 || val == 7893) return _('Port 7892 / 7893 is built-in.');
+				return true
+			}
 			// o.depends("allow-lan", true)
 
 			// o = sConfig.taboption('general', form.Value, 'redir-port', _("Redirect TCP and TProxy UDP"))
@@ -361,11 +373,11 @@ return view.extend({
 			o.value("redir-host", _("Redir-host"))
 			o.value("fake-ip", _("Fake-ip"))
 
-			o = sConfig.taboption('dns', form.Value, "dns_fake-ip-range", _("Fake-ip range"))
-			o.datatype = "ipaddr"
-			o.placeholder = "198.18.0.1/16"
-			o.default = "198.18.0.1/16"
-			o.depends("dns_enhanced-mode", "fake-ip")
+			// o = sConfig.taboption('dns', form.Value, "dns_fake-ip-range", _("Fake-ip range"))
+			// o.datatype = "ipaddr"
+			// o.placeholder = "198.18.0.1/16"
+			// o.default = "198.18.0.1/16"
+			// o.depends("dns_enhanced-mode", "fake-ip")
 
 			o = sConfig.taboption('dns', form.DynamicList, "dns_fake-ip-filter", _("Fake-ip white domain list"), _("fake ip white domain list, aka Always Real IP"))
 			o.placeholder = "*.lan"
