@@ -233,7 +233,13 @@ return view.extend({
 								ev.target.setAttribute('class', 'cbi-button cbi-button-positive')
 							})
 							.catch(err => {
-								ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + err)
+								let errmsg
+								try {
+									errmsg = JSON.parse(err.responseText).message
+								} catch (error) {
+									errmsg = err
+								}
+								ui.addNotification(null, _("Apply configuration ") + section_id + " ERROR: " + errmsg)
 								setTimeout(() => {
 									ev.target.disabled = false
 									ev.target.innerHTML = _('Failed')
